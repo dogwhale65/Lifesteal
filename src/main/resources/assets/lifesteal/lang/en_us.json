@@ -1,0 +1,8 @@
+{
+    "item.lifesteal.heart": "Heart",
+    "item.lifesteal.crafted_heart": "Crafted Heart",
+    "item.lifesteal.heart_fragment": "Heart Fragment",
+    "item.lifesteal.beacon_of_life": "Beacon of Life",
+
+    "itemGroup.lifesteal": "Lifesteal"
+}

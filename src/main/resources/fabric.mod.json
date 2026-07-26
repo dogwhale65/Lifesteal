@@ -1,0 +1,34 @@
+{
+    "schemaVersion": 1,
+    "id": "lifesteal",
+    "version": "${version}",
+    "name": "Lifesteal",
+    "description": "A mod inspired by the LifeSteal SMP for Minecraft 1.20.2 by Nightfall Mods.",
+    "authors": [
+        "dogwhale65",
+        "FaintDangernite"
+    ],
+    "contact": {
+        "sources": "https://github.com/dogwhale65/Lifesteal"
+    },
+    "license": "MIT",
+    "icon": "assets/lifesteal/icon.png",
+    "environment": "*",
+    "entrypoints": {
+        "main": [
+            "nightfallmods.lifesteal.Lifesteal"
+        ],
+        "client": [
+            "nightfallmods.lifesteal.LifestealClient"
+        ]
+    },
+    "mixins": [
+        "lifesteal.mixins.json"
+    ],
+    "depends": {
+        "fabricloader": ">=0.19.3",
+        "minecraft": "~1.20.2",
+        "java": ">=17",
+        "fabric-api": "*"
+    }
+}
