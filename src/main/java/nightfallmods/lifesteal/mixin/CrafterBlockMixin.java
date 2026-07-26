@@ -1,0 +1,32 @@
+package nightfallmods.lifesteal.mixin;
+
+import nightfallmods.lifesteal.manager.UniqueItemManager;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.level.block.CrafterBlock;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+@Mixin(CrafterBlock.class)
+public class CrafterBlockMixin {
+
+    // RecipeInput/CraftingInput arrive in 1.21: recipes still assemble from a Container here, and
+    // the call site erases CraftingContainer to Container, so the descriptor must say Container.
+    @Redirect(
+            method = "dispenseFrom",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/item/crafting/CraftingRecipe;assemble(Lnet/minecraft/world/Container;Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/world/item/ItemStack;")
+    )
+    private ItemStack lifesteal$gateCrafterUnique(CraftingRecipe recipe, Container input, HolderLookup.Provider registries) {
+
+        ItemStack result = recipe.assemble((CraftingContainer) input, registries);
+        if (UniqueItemManager.blocksCrafting(result)) return ItemStack.EMPTY;
+        UniqueItemManager.tagCrafted(result);
+        return result;
+    }
+}
+
