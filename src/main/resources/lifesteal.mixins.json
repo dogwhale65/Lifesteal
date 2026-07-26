@@ -1,0 +1,41 @@
+{
+	"required": true,
+	"package": "nightfallmods.lifesteal.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"EnchantedGoldenAppleMixin",
+		"TNTCartExplosionMixin",
+		"ExplosionDamageMixin",
+		"ExplosionEntityDamageMixin",
+		"ItemEntityDestructionMixin",
+		"DragonEggExplosionMixin",
+		"EnderDragonFightMixin",
+		"SlotMayPickupMixin",
+		"ResultSlotMixin",
+		"CrafterBlockMixin",
+		"ItemCombinerMenuMixin",
+		"SmithingMenuMixin",
+		"TotemMixin",
+		"EnderPearlMixin",
+		"EffectBlockMixin",
+		"SlotMayPlaceMixin",
+		"ShulkerBoxSlotMixin",
+		"HopperPickupMixin",
+		"ItemFrameMixin",
+		"BundleItemMixin",
+		"DecoratedPotMixin",
+		"ShelfMixin",
+		"EquippableMixin",
+		"ArmorSlotMixin",
+		"WindChargeMixin",
+		"TNTCartDisableMixin",
+		"RecipeManagerMixin",
+		"accessor.MobEffectInstanceAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
