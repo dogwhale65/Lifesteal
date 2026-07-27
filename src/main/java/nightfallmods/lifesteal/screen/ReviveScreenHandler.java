@@ -27,21 +27,28 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PageManager pages;
     private final ReviveItemFactory factory;
 
+    /** Inventory slot the opening Beacon of Life sits in, or {@link #NO_BEACON} when opened by command. */
+    private final int beaconSlot;
+
     private ReviveSort sort;
 
+    public static final int NO_BEACON = -1;
+
     public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server) {
-        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED);
+        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED, NO_BEACON);
     }
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, ReviveSort sort) {
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
+                               ReviveSort sort, int beaconSlot) {
         super(MenuType.GENERIC_9x6, syncId);
-        this.player    = playerInventory.player;
-        this.server    = server;
-        this.sort      = sort;
-        this.inventory = new SimpleContainer(Constants.CHEST_6X9_SIZE);
-        this.collector = new PlayerCollector(server);
-        this.pages     = new PageManager();
-        this.factory   = new ReviveItemFactory();
+        this.player     = playerInventory.player;
+        this.server     = server;
+        this.sort       = sort;
+        this.beaconSlot = beaconSlot;
+        this.inventory  = new SimpleContainer(Constants.CHEST_6X9_SIZE);
+        this.collector  = new PlayerCollector(server);
+        this.pages      = new PageManager();
+        this.factory    = new ReviveItemFactory();
 
         addSlots(playerInventory);
         renderPage();
@@ -67,7 +74,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return beaconStillBound(player, beaconSlot) || (beaconSlot == NO_BEACON && isOperator(player));
     }
 
     @Override
@@ -83,6 +90,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, containerInput, player);
+        closeIfBeaconMoved(this, player, beaconSlot);
     }
 
     private void handleClick(ItemStack stack) {
@@ -113,8 +121,9 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
         if (player instanceof ServerPlayer sp) {
             ReviveSort currentSort = sort;
+            int slot = beaconSlot;
             sp.openMenu(new SimpleMenuProvider(
-                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort),
+                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort, slot),
                     Component.literal("Revive " + target + "?")
             ));
         }
@@ -127,12 +136,24 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         return server.getPlayerList().isOp(sp.nameAndId());
     }
 
-    public static boolean hasBeaconInInventory(Player player) {
+    /**
+     * The revive menus stay bound to the exact slot the Beacon of Life was used from. Offhand swaps,
+     * drags, drops and hotbar swaps all move the stack out of that slot, so a single check covers
+     * every way the beacon can leave — and the menu closes instead of acting on a beacon that is
+     * no longer there.
+     */
+    public static boolean beaconStillBound(Player player, int beaconSlot) {
+        if (beaconSlot == NO_BEACON) return false;
         var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return true;
-        }
-        return false;
+        if (beaconSlot < 0 || beaconSlot >= inv.getContainerSize()) return false;
+        return inv.getItem(beaconSlot).getItem() == Items.BEACON_OF_LIFE;
+    }
+
+    /** Closes the menu immediately rather than waiting for the next {@code stillValid} tick. */
+    public static void closeIfBeaconMoved(AbstractContainerMenu menu, Player player, int beaconSlot) {
+        if (beaconSlot == NO_BEACON) return;
+        if (beaconStillBound(player, beaconSlot)) return;
+        if (player instanceof ServerPlayer sp && sp.containerMenu == menu) sp.closeContainer();
     }
 }
 

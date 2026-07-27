@@ -2,7 +2,6 @@ package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.Lifesteal;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -27,14 +26,17 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final int beaconSlot;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
-                                     String targetName, boolean targetBanned, ReviveSort returnSort) {
+                                     String targetName, boolean targetBanned, ReviveSort returnSort,
+                                     int beaconSlot) {
         super(MenuType.GENERIC_9x3, syncId);
         this.player     = playerInventory.player;
         this.server     = server;
         this.targetName = targetName;
         this.returnSort = returnSort;
+        this.beaconSlot = beaconSlot;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
 
@@ -64,7 +66,8 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        return ReviveScreenHandler.beaconStillBound(player, beaconSlot)
+                || (beaconSlot == ReviveScreenHandler.NO_BEACON && ReviveScreenHandler.isOperator(player));
     }
 
     @Override
@@ -80,11 +83,18 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, containerInput, player);
+        ReviveScreenHandler.closeIfBeaconMoved(this, player, beaconSlot);
     }
 
     private void handleClick(ItemStack stack) {
         if (!stack.has(DataComponents.CUSTOM_NAME)) return;
         String name = stack.get(DataComponents.CUSTOM_NAME).getString();
+
+        // The beacon may have been moved between the click packet and now; never act on a stale menu.
+        if (!stillValid(player)) {
+            ReviveScreenHandler.closeIfBeaconMoved(this, player, beaconSlot);
+            return;
+        }
 
         if (name.equals("Revive " + targetName)) {
             confirmRevive();
@@ -96,7 +106,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private void confirmRevive() {
         if (logic.revivePlayer(targetName)) {
             player.sendSystemMessage(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
-            consumeBeaconIfPresent();
+            consumeBoundBeacon();
             if (player instanceof ServerPlayer sp) sp.closeContainer();
         } else {
             player.sendSystemMessage(Component.literal("Failed to revive " + targetName + ".").withStyle(ChatFormatting.RED));
@@ -108,22 +118,29 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer sp)) return;
         ReviveSort sortToRestore = returnSort;
         MinecraftServer srv = server;
+        int slot = beaconSlot;
         sp.openMenu(new SimpleMenuProvider(
-                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore),
+                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore, slot),
                 Component.literal("Revive a Player")
         ));
     }
 
-    private void consumeBeaconIfPresent() {
+    /**
+     * Consumes the beacon from the slot the menu is bound to. Equipment slots (the offhand in
+     * particular) are not part of this menu's slot list, so the client is resynced explicitly —
+     * otherwise the consumed beacon lingers client-side as a ghost item.
+     */
+    private void consumeBoundBeacon() {
+        if (!ReviveScreenHandler.beaconStillBound(player, beaconSlot)) return;
+
         var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack.getItem() == Items.BEACON_OF_LIFE) {
-                stack.shrink(1);
-                Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
-                return;
-            }
+        inv.removeItem(beaconSlot, 1);
+        inv.setChanged();
+
+        if (player instanceof ServerPlayer sp) {
+            sp.connection.send(inv.createInventoryUpdatePacket(beaconSlot));
         }
+        Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
     }
 }
 

@@ -4,6 +4,7 @@ import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.config.ServerConfig;
 import nightfallmods.lifesteal.manager.CraftedHeartTracker;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
+import nightfallmods.lifesteal.manager.StorageRestrictionHandler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -36,6 +37,10 @@ public class CraftedHeart extends Item {
         ServerPlayer player = (ServerPlayer) user;
         ServerConfig cfg = ServerConfig.getInstance();
 
+        // Right-clicking an item frame (or shelf, or pot) blocks the interaction and then falls
+        // through to a normal use — swallow it so the cap message never piggybacks on that click.
+        if (StorageRestrictionHandler.wasJustBlocked(player)) return InteractionResult.FAIL;
+
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) {
             return InteractionResult.FAIL;
@@ -45,13 +50,14 @@ public class CraftedHeart extends Item {
         if (attr.getBaseValue() >= cap) {
             player.sendSystemMessage(
                     Component.literal("Crafted Hearts cannot raise your health beyond "
-                                    + cfg.craftedHeartCap + " hearts. Earn more through combat.")
+                                    + cfg.craftedHeartCap + " hearts.")
                             .withStyle(ChatFormatting.RED)
             );
             return InteractionResult.FAIL;
         }
 
         if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            Heart.notifyAtMaxHearts(player, cfg);
             return InteractionResult.FAIL;
         }
 

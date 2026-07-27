@@ -3,6 +3,9 @@ package nightfallmods.lifesteal.item;
 import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.config.ServerConfig;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
+import nightfallmods.lifesteal.manager.StorageRestrictionHandler;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -28,9 +31,16 @@ public class Heart extends Item {
         ServerPlayer player = (ServerPlayer) user;
         ServerConfig cfg = ServerConfig.getInstance();
 
+        // Right-clicking an item frame (or shelf, or pot) blocks the interaction and then falls
+        // through to a normal use — swallow it so the heart is neither spent nor complained about.
+        if (StorageRestrictionHandler.wasJustBlocked(player)) return InteractionResult.FAIL;
+
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return InteractionResult.FAIL;
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) return InteractionResult.FAIL;
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            notifyAtMaxHearts(player, cfg);
+            return InteractionResult.FAIL;
+        }
 
         attr.setBaseValue(attr.getBaseValue() + Constants.HEART_VALUE);
         if (cfg.fullHeartOnGain)
@@ -46,5 +56,13 @@ public class Heart extends Item {
                 SoundSource.PLAYERS, 1.0f, 1.0f);
 
         return InteractionResult.SUCCESS;
+    }
+
+    /** Shared by both heart items — applying anything past the configured ceiling. */
+    public static void notifyAtMaxHearts(ServerPlayer player, ServerConfig cfg) {
+        player.sendSystemMessage(
+                Component.literal("You cannot have more than " + cfg.maxHearts + " hearts.")
+                        .withStyle(ChatFormatting.RED)
+        );
     }
 }

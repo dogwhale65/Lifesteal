@@ -27,7 +27,8 @@ public class PageManager {
 
         for (int i = startIndex; i < endIndex; i++) {
             PlayerCollector.Revivable entry = entries.get(i);
-            inventory.setItem(i - startIndex, factory.createPlayerHead(entry.name(), entry.banned()));
+            inventory.setItem(Constants.contentSlot(i - startIndex),
+                    factory.createPlayerHead(entry.name(), entry.banned()));
         }
 
         if (currentPage > 0) {
