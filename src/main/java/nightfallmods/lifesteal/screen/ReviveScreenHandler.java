@@ -1,7 +1,6 @@
 package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -26,18 +25,21 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconBinding beacon;
 
     private ReviveSort sort;
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server) {
-        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED);
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, BeaconBinding beacon) {
+        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED, beacon);
     }
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, ReviveSort sort) {
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
+                               ReviveSort sort, BeaconBinding beacon) {
         super(MenuType.GENERIC_9x6, syncId);
         this.player    = playerInventory.player;
         this.server    = server;
         this.sort      = sort;
+        this.beacon    = beacon;
         this.inventory = new SimpleContainer(Constants.CHEST_6X9_SIZE);
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
@@ -67,7 +69,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return stillValid(player, beacon);
     }
 
     @Override
@@ -113,11 +115,21 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
         if (player instanceof ServerPlayer sp) {
             ReviveSort currentSort = sort;
+            BeaconBinding currentBeacon = beacon;
             sp.openMenu(new SimpleMenuProvider(
-                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort),
+                    (syncId, inv, p) -> new ConfirmationScreenHandler(
+                            syncId, inv, server, target, isBanned, currentSort, currentBeacon),
                     Component.literal("Revive " + target + "?")
             ));
         }
+    }
+
+    /**
+     * A beacon-opened menu lives and dies with that one stack; a command-opened menu only needs the
+     * operator to still be an operator.
+     */
+    static boolean stillValid(Player player, BeaconBinding beacon) {
+        return beacon == null ? isOperator(player) : beacon.stillHeld(player);
     }
 
     public static boolean isOperator(Player player) {
@@ -125,14 +137,6 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         MinecraftServer server = ((ServerLevel) sp.level()).getServer();
         if (server == null) return false;
         return server.getPlayerList().isOp(sp.getGameProfile());
-    }
-
-    public static boolean hasBeaconInInventory(Player player) {
-        var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return true;
-        }
-        return false;
     }
 }
 

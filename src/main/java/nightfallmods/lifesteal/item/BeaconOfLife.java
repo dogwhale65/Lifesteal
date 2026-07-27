@@ -1,5 +1,6 @@
 package nightfallmods.lifesteal.item;
 
+import nightfallmods.lifesteal.screen.BeaconBinding;
 import nightfallmods.lifesteal.screen.ReviveScreenHandler;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -24,8 +25,13 @@ public class BeaconOfLife extends Item {
 
         ServerPlayer player = (ServerPlayer) user;
 
+        // Bind the menu to this exact stack in this exact hand — moving it closes the menu.
+        BeaconBinding beacon = BeaconBinding.of(player, hand);
+        if (beacon == null) return InteractionResult.FAIL;
+
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, ((ServerLevel) level).getServer()),
+                (syncId, inventory, p) ->
+                        new ReviveScreenHandler(syncId, inventory, ((ServerLevel) level).getServer(), beacon),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);

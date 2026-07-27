@@ -32,8 +32,9 @@ public class Revive {
         }
 
         MinecraftServer server = source.getServer();
+        // No beacon binding: the command is operator-only and consumes nothing.
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server),
+                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server, null),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);
