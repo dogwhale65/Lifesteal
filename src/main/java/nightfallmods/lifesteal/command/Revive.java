@@ -32,8 +32,9 @@ public class Revive {
         }
 
         MinecraftServer server = source.getServer();
+        // Opened on permission rather than an item, so there is no beacon to watch or consume.
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server),
+                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server, -1),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);

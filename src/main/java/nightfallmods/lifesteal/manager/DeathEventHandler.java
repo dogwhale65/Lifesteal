@@ -37,14 +37,22 @@ public class DeathEventHandler {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (!(entity instanceof ServerPlayer player)) return;
-            if (source.getEntity() instanceof ServerPlayer killer && killer != player) {
-                handleKillReward(killer);
+            ServerPlayer killer = source.getEntity() instanceof ServerPlayer k && k != player ? k : null;
+
+            // A player sitting on the heart floor loses nothing, so there is nothing to steal
+            // either — the kill has to go unrewarded or hearts would be minted out of thin air.
+            if (isProtectedByMinimum(player)) {
+                reportNothingLost(player, killer);
+                return;
             }
+
+            if (killer != null) handleKillReward(killer);
             handleDeath(player);
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)) {
+            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)
+                    && !isProtectedByMinimum(player)) {
                 beginDeathMessageSuppression(player);
             }
             return true;
@@ -54,6 +62,7 @@ public class DeathEventHandler {
             UUID id = newPlayer.getUUID();
             if (pendingHealthReduction.remove(id)) applyHeartLoss(newPlayer);
             if (pendingSpectator.remove(id))       transitionToSpectator(newPlayer);
+            GracePeriodManager.begin(newPlayer);
         });
 
         Lifesteal.LOGGER.info("[Death] Event handlers registered.");
@@ -80,11 +89,29 @@ public class DeathEventHandler {
         }
     }
 
+    /** True when the heart floor is on and this player is already sitting on it. */
+    private static boolean isProtectedByMinimum(ServerPlayer player) {
+        AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
+        return attr != null && ServerConfig.getInstance().isAtMinimumHearts(attr.getBaseValue());
+    }
+
+    private static void reportNothingLost(ServerPlayer victim, ServerPlayer attacker) {
+        if (attacker == null) return;
+        victim.sendSystemMessage(Component.literal(
+                "You did not lose any hearts to " + attacker.getName().getString() + ".")
+                .withStyle(ChatFormatting.YELLOW));
+        attacker.sendSystemMessage(Component.literal(
+                victim.getName().getString() + " had no hearts to steal.")
+                .withStyle(ChatFormatting.RED));
+    }
+
     private static void applyHeartLoss(ServerPlayer player) {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return;
 
+        ServerConfig cfg = ServerConfig.getInstance();
         double reduced = attr.getBaseValue() - Constants.HEART_VALUE;
+        if (cfg.minHeartsEnabled) reduced = Math.max(reduced, cfg.getMinHealth());
         attr.setBaseValue(reduced);
         player.setHealth((float) reduced);
         CraftedHeartTracker.clampTo(player.getUUID(), (int) (reduced / Constants.HEART_VALUE));

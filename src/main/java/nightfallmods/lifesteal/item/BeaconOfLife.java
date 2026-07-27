@@ -24,8 +24,12 @@ public class BeaconOfLife extends Item {
 
         ServerPlayer player = (ServerPlayer) user;
 
+        // The menu is tied to this exact beacon: move it and the menu shuts.
+        int beaconSlot = ReviveScreenHandler.heldSlot(player, hand);
+
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, ((ServerLevel) level).getServer()),
+                (syncId, inventory, p) -> new ReviveScreenHandler(
+                        syncId, inventory, ((ServerLevel) level).getServer(), beaconSlot),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);

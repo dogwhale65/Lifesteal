@@ -37,6 +37,18 @@ adjustable through config files generated on first launch:
 - `config/lifesteal-enchantments.json` - per-enchantment level caps
 - `config/lifesteal-recipes/` - crafting recipes as editable JSON
 
+### Minimum hearts
+
+`minHeartsEnabled` puts a floor of `minHearts` under every player. At the floor a death costs
+nothing, the killer earns nothing, and `/withdraw` will not take you below it - which in practice
+means nobody is ever eliminated. Off by default.
+
+### Grace period
+
+`gracePeriodEnabled` gives players `gracePeriodSeconds` (30 minutes by default) of immunity to
+player-dealt damage after respawning. Wearing armour or attacking another player ends it early.
+Off by default.
+
 
 ## License
 

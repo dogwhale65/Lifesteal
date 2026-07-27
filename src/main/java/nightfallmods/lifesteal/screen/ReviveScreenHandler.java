@@ -27,17 +27,27 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PageManager pages;
     private final ReviveItemFactory factory;
 
+    /**
+     * The inventory slot the Beacon of Life occupied when this menu was opened, or -1 when an
+     * operator opened it without one. The beacon must stay put: moving it in any way — dragging,
+     * dropping, swapping it to the offhand — closes the menu, because the offhand and armour slots
+     * are not part of this menu and edits to them never reach the client as slot updates.
+     */
+    private final int watchedBeaconSlot;
+
     private ReviveSort sort;
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server) {
-        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED);
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, int watchedBeaconSlot) {
+        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED, watchedBeaconSlot);
     }
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, ReviveSort sort) {
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
+                               ReviveSort sort, int watchedBeaconSlot) {
         super(MenuType.GENERIC_9x6, syncId);
         this.player    = playerInventory.player;
         this.server    = server;
         this.sort      = sort;
+        this.watchedBeaconSlot = watchedBeaconSlot;
         this.inventory = new SimpleContainer(Constants.CHEST_6X9_SIZE);
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
@@ -67,7 +77,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return menuStillAuthorised(player, watchedBeaconSlot);
     }
 
     @Override
@@ -75,6 +85,10 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
+        // stillValid() only runs once per player tick, which is too late: the click that moved the
+        // beacon is fully applied before the next check. Bracketing every click catches it.
+        if (closeIfBeaconMoved(player, watchedBeaconSlot)) return;
+
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_6X9_SIZE && clickType == ClickType.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -83,6 +97,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, clickType, player);
+        closeIfBeaconMoved(player, watchedBeaconSlot);
     }
 
     private void handleClick(ItemStack stack) {
@@ -113,8 +128,10 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
         if (player instanceof ServerPlayer sp) {
             ReviveSort currentSort = sort;
+            int beaconSlot = watchedBeaconSlot;
             sp.openMenu(new SimpleMenuProvider(
-                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort),
+                    (syncId, inv, p) -> new ConfirmationScreenHandler(
+                            syncId, inv, server, target, isBanned, currentSort, beaconSlot),
                     Component.literal("Revive " + target + "?")
             ));
         }
@@ -128,19 +145,46 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     }
 
     /**
-     * Index of the first Beacon of Life in the player's inventory, or -1 if there is none.
-     * Locating and consuming the beacon must scan identically, so both go through here.
+     * Inventory slot holding the stack the player is using, or -1 if it cannot be located.
+     * Compared by identity, so it finds the offhand and hotbar without depending on the layout
+     * of {@link Inventory}'s compartments.
      */
-    public static int findBeaconSlot(Player player) {
+    public static int heldSlot(Player player, net.minecraft.world.InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
+        if (held.isEmpty()) return -1;
         var inv = player.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {
-            if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return i;
+            if (inv.getItem(i) == held) return i;
+        }
+        // Identity always matches in practice; the fallback exists so a miss degrades to watching
+        // the wrong beacon rather than locking a non-operator out of the menu entirely.
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (inv.getItem(i).getItem() == held.getItem()) return i;
         }
         return -1;
     }
 
-    public static boolean hasBeaconInInventory(Player player) {
-        return findBeaconSlot(player) >= 0;
+    /** True while the beacon the menu was opened with is still untouched in the slot it came from. */
+    public static boolean beaconStillAt(Player player, int slot) {
+        if (slot < 0) return false;
+        var inv = player.getInventory();
+        if (slot >= inv.getContainerSize()) return false;
+        return inv.getItem(slot).getItem() == Items.BEACON_OF_LIFE;
+    }
+
+    /**
+     * A beacon-opened menu stays open only while that beacon sits still; an operator who opened the
+     * menu without one (slot -1) keeps it open on permission alone.
+     */
+    public static boolean menuStillAuthorised(Player player, int watchedBeaconSlot) {
+        return watchedBeaconSlot < 0 ? isOperator(player) : beaconStillAt(player, watchedBeaconSlot);
+    }
+
+    /** Closes the menu when the watched beacon has moved. Returns true if it closed. */
+    public static boolean closeIfBeaconMoved(Player player, int watchedBeaconSlot) {
+        if (menuStillAuthorised(player, watchedBeaconSlot)) return false;
+        if (player instanceof ServerPlayer sp) sp.closeContainer();
+        return true;
     }
 }
 

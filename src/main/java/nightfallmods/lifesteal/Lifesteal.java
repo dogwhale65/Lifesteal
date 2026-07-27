@@ -11,6 +11,7 @@ import nightfallmods.lifesteal.manager.CraftedHeartTracker;
 import nightfallmods.lifesteal.manager.DeathEventHandler;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
 import nightfallmods.lifesteal.manager.EliminatedPlayersTracker;
+import nightfallmods.lifesteal.manager.GracePeriodManager;
 import nightfallmods.lifesteal.manager.InventoryEnforcer;
 import nightfallmods.lifesteal.manager.RevivedPlayersManager;
 import nightfallmods.lifesteal.manager.UniqueItemManager;
@@ -39,9 +40,11 @@ public class Lifesteal implements ModInitializer {
         Revive.register();
         Deathban.register();
         InventoryEnforcer.register();
+        GracePeriodManager.register();
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             RevivedPlayersManager.setDataPath(FabricLoader.getInstance().getConfigDir());
+            GracePeriodManager.setDataPath(FabricLoader.getInstance().getConfigDir());
             EliminatedPlayersTracker.setDataPath(FabricLoader.getInstance().getConfigDir());
             CraftedHeartTracker.setDataPath(FabricLoader.getInstance().getConfigDir());
             EnchantmentsConfig.init(server.registryAccess());

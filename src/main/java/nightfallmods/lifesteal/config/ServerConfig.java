@@ -29,6 +29,10 @@ public class ServerConfig {
     public int craftedHeartCap   = 10;
     public int reviveHearts      = 3;
 
+    /** A floor on hearts. At the floor a death costs nothing, which also means no elimination. */
+    public boolean minHeartsEnabled = false;
+    public int     minHearts        = 1;
+
     public boolean egaHeartLimitEnabled = false;
     public int egaHeartThreshold = 12;
 
@@ -39,7 +43,9 @@ public class ServerConfig {
     public String heartDeathSound            = Constants.SOUND_HEART_DEATH;
     public int    heartEquipSoundChunkRadius = 4;
 
-    public int gracePeriodMinutes = 0;
+    /** Post-death immunity to player-dealt damage. Ends early on wearing armour or attacking. */
+    public boolean gracePeriodEnabled = false;
+    public int     gracePeriodSeconds = 1800;
 
     public boolean fullHeartOnGain = false;
 
@@ -126,9 +132,27 @@ public class ServerConfig {
         return false;
     }
 
-    public double getMaxHealth()      { return maxHearts      * Constants.HEART_VALUE; }
-    public double getStartingHealth() { return startingHearts * Constants.HEART_VALUE; }
-    public double getReviveHealth()   { return reviveHearts   * Constants.HEART_VALUE; }
+    public double getMaxHealth()      { return maxHearts * Constants.HEART_VALUE; }
+    public double getMinHealth()      { return minHearts * Constants.HEART_VALUE; }
+
+    // Granted totals go through the floor as well, so a revive or a reset cannot drop someone
+    // below a limit that deaths and withdrawals already respect.
+    public double getStartingHealth() { return withinBounds(startingHearts * Constants.HEART_VALUE); }
+    public double getReviveHealth()   { return withinBounds(reviveHearts   * Constants.HEART_VALUE); }
+
+    private double withinBounds(double health) {
+        if (!minHeartsEnabled) return health;
+        return Math.min(Math.max(health, getMinHealth()), getMaxHealth());
+    }
+
+    /** True when the floor is on and this health is already at or below it, so no heart can be lost. */
+    public boolean isAtMinimumHearts(double baseHealth) {
+        return minHeartsEnabled && baseHealth <= getMinHealth();
+    }
+
+    public boolean isGracePeriodEnabled() {
+        return gracePeriodEnabled && gracePeriodSeconds > 0;
+    }
 
     public CraftedHeartWithdrawAction craftedHeartWithdrawMode() {
         for (CraftedHeartWithdrawAction mode : CraftedHeartWithdrawAction.values()) {

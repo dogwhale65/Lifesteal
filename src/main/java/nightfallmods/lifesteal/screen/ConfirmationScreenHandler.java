@@ -28,13 +28,18 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
 
+    /** See {@link ReviveScreenHandler}: the beacon slot this menu is tied to, or -1 for operators. */
+    private final int watchedBeaconSlot;
+
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
-                                     String targetName, boolean targetBanned, ReviveSort returnSort) {
+                                     String targetName, boolean targetBanned, ReviveSort returnSort,
+                                     int watchedBeaconSlot) {
         super(MenuType.GENERIC_9x3, syncId);
         this.player     = playerInventory.player;
         this.server     = server;
         this.targetName = targetName;
         this.returnSort = returnSort;
+        this.watchedBeaconSlot = watchedBeaconSlot;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
 
@@ -64,7 +69,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        return ReviveScreenHandler.menuStillAuthorised(player, watchedBeaconSlot);
     }
 
     @Override
@@ -72,6 +77,8 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
+        if (ReviveScreenHandler.closeIfBeaconMoved(player, watchedBeaconSlot)) return;
+
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_3X9_SIZE && clickType == ClickType.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -80,6 +87,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, clickType, player);
+        ReviveScreenHandler.closeIfBeaconMoved(player, watchedBeaconSlot);
     }
 
     private void handleClick(ItemStack stack) {
@@ -99,8 +107,8 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         // was opened, and stillValid() is only re-evaluated once per tick — after the click
         // packet that got us here has already been handled. Everything below runs synchronously
         // on the server thread, so the check, the revive and the consume are atomic.
-        boolean opAuthorised = ReviveScreenHandler.isOperator(player);
-        int beaconSlot = ReviveScreenHandler.findBeaconSlot(player);
+        boolean opAuthorised = watchedBeaconSlot < 0 && ReviveScreenHandler.isOperator(player);
+        int beaconSlot = ReviveScreenHandler.beaconStillAt(player, watchedBeaconSlot) ? watchedBeaconSlot : -1;
 
         if (!opAuthorised && beaconSlot < 0) {
             sendTo(Component.literal("You need a Beacon of Life to revive a player.")
@@ -119,7 +127,12 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
         sendTo(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
         consumeBeaconAt(beaconSlot);
-        if (player instanceof ServerPlayer sp) sp.closeContainer();
+        if (player instanceof ServerPlayer sp) {
+            sp.closeContainer();
+            // The beacon may have been spent from the offhand, which no chest menu tracks; a full
+            // resync is what stops the consumed stack lingering client-side as a ghost item.
+            sp.inventoryMenu.sendAllDataToRemote();
+        }
     }
 
     private void sendTo(Component message) {
@@ -130,8 +143,9 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer sp)) return;
         ReviveSort sortToRestore = returnSort;
         MinecraftServer srv = server;
+        int beaconSlot = watchedBeaconSlot;
         sp.openMenu(new SimpleMenuProvider(
-                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore),
+                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore, beaconSlot),
                 Component.literal("Revive a Player")
         ));
     }

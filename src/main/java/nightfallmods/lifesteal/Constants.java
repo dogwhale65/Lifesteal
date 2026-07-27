@@ -12,7 +12,16 @@ public final class Constants {
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+
+    // Revive menu layout. Heads sit in a padded block: one filler row along the top, one filler
+    // column down each side, and the navigation row as the bottom edge — so the last content row
+    // touches the navigation row directly rather than leaving a gap.
+    public static final int GRID_COLUMNS      = 9;
+    public static final int CONTENT_FIRST_ROW = 1;
+    public static final int CONTENT_FIRST_COL = 1;
+    public static final int CONTENT_ROWS      = 4;
+    public static final int CONTENT_COLS      = 7;
+    public static final int ITEMS_PER_PAGE    = CONTENT_ROWS * CONTENT_COLS;
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;
