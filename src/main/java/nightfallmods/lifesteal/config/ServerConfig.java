@@ -39,7 +39,13 @@ public class ServerConfig {
     public String heartDeathSound            = Constants.SOUND_HEART_DEATH;
     public int    heartEquipSoundChunkRadius = 4;
 
-    public int gracePeriodMinutes = 0;
+    /** Heart floor. While a player sits on it they cannot lose a heart on death, so they can never be deathbanned. */
+    public boolean minimumHeartsEnabled = false;
+    public int     minimumHearts        = 1;
+
+    /** Post-death protection from other players. Off by default; 1800s = 30 minutes. */
+    public boolean gracePeriodEnabled = false;
+    public int     gracePeriodSeconds = 1800;
 
     public boolean fullHeartOnGain = false;
 
@@ -129,6 +135,16 @@ public class ServerConfig {
     public double getMaxHealth()      { return maxHearts      * Constants.HEART_VALUE; }
     public double getStartingHealth() { return startingHearts * Constants.HEART_VALUE; }
     public double getReviveHealth()   { return reviveHearts   * Constants.HEART_VALUE; }
+
+    /** Lowest heart count a player may be reduced to. Always at least 1 — zero hearts is a death ban. */
+    public int getHeartFloor() {
+        return minimumHeartsEnabled ? Math.max(1, minimumHearts) : 1;
+    }
+
+    /** True when {@code baseHealth} is already at or below the configured floor, so no heart may be taken. */
+    public boolean isAtHeartFloor(double baseHealth) {
+        return minimumHeartsEnabled && baseHealth <= getHeartFloor() * Constants.HEART_VALUE;
+    }
 
     public CraftedHeartWithdrawAction craftedHeartWithdrawMode() {
         for (CraftedHeartWithdrawAction mode : CraftedHeartWithdrawAction.values()) {

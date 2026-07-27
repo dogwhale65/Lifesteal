@@ -30,7 +30,10 @@ public class Heart extends Item {
 
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return InteractionResult.FAIL;
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) return InteractionResult.FAIL;
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            player.sendSystemMessage(HeartMessages.maxHearts(cfg));
+            return InteractionResult.FAIL;
+        }
 
         attr.setBaseValue(attr.getBaseValue() + Constants.HEART_VALUE);
         if (cfg.fullHeartOnGain)

@@ -32,9 +32,11 @@ public class StorageRestrictionHandler {
     }
 
     public static void notifyRestricted(ServerPlayer player, ItemStack stack) {
+        // The whole line is the error, so it is all red — the item's own name colour (and any legacy
+        // section codes baked into it) must not leak in and recolour the rest of the sentence.
+        String name = ChatFormatting.stripFormatting(stack.getHoverName().getString());
         player.sendSystemMessage(
-                Component.literal(stack.getHoverName().getString() + " cannot be stored.")
-                        .withStyle(ChatFormatting.RED),
+                Component.literal(name + " cannot be stored.").withStyle(ChatFormatting.RED),
                 true
         );
     }

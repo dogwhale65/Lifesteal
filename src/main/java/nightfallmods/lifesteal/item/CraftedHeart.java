@@ -4,8 +4,6 @@ import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.config.ServerConfig;
 import nightfallmods.lifesteal.manager.CraftedHeartTracker;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -41,17 +39,14 @@ public class CraftedHeart extends Item {
             return InteractionResult.FAIL;
         }
 
-        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
-        if (attr.getBaseValue() >= cap) {
-            player.sendSystemMessage(
-                    Component.literal("Crafted Hearts cannot raise your health beyond "
-                                    + cfg.craftedHeartCap + " hearts. Earn more through combat.")
-                            .withStyle(ChatFormatting.RED)
-            );
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            player.sendSystemMessage(HeartMessages.maxHearts(cfg));
             return InteractionResult.FAIL;
         }
 
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
+        if (attr.getBaseValue() >= cap) {
+            player.sendSystemMessage(HeartMessages.craftedHeartCap(cfg));
             return InteractionResult.FAIL;
         }
 

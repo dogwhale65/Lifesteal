@@ -23,7 +23,10 @@ public class ItemFrameMixin {
             if (player instanceof ServerPlayer sp) {
                 StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
             }
-            cir.setReturnValue(InteractionResult.FAIL);
+            // CONSUME rather than FAIL: Minecraft#startUseItem only stops at an InteractionResult.Success,
+            // so FAIL lets the click fall through to the item's own use() — which is what produced a
+            // second, unrelated "cannot raise your health beyond ..." message on top of this one.
+            cir.setReturnValue(InteractionResult.CONSUME);
         }
     }
 }
