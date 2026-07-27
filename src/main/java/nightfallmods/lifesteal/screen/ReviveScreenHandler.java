@@ -1,7 +1,6 @@
 package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -26,18 +25,21 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconAnchor anchor;
 
     private ReviveSort sort;
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server) {
-        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED);
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, BeaconAnchor anchor) {
+        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED, anchor);
     }
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, ReviveSort sort) {
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
+                               ReviveSort sort, BeaconAnchor anchor) {
         super(MenuType.GENERIC_9x6, syncId);
         this.player    = playerInventory.player;
         this.server    = server;
         this.sort      = sort;
+        this.anchor    = anchor;
         this.inventory = new SimpleContainer(Constants.CHEST_6X9_SIZE);
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
@@ -67,7 +69,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return anchor.isIntact(player) && (anchor.isAnchored() || isOperator(player));
     }
 
     @Override
@@ -75,6 +77,10 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
+        if (!anchor.isIntact(player)) {
+            closeMenu(player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_6X9_SIZE && clickType == ClickType.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -113,11 +119,20 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
         if (player instanceof ServerPlayer sp) {
             ReviveSort currentSort = sort;
+            BeaconAnchor currentAnchor = anchor;
             sp.openMenu(new SimpleMenuProvider(
-                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort),
+                    (syncId, inv, p) -> new ConfirmationScreenHandler(
+                            syncId, inv, server, target, isBanned, currentSort, currentAnchor),
                     Component.literal("Revive " + target + "?")
             ));
         }
+    }
+
+    /** Closes the menu and resyncs the inventory, so a moved beacon leaves no ghost item behind. */
+    static void closeMenu(Player player) {
+        if (!(player instanceof ServerPlayer sp)) return;
+        sp.closeContainer();
+        sp.inventoryMenu.sendAllDataToRemote();
     }
 
     public static boolean isOperator(Player player) {
@@ -125,22 +140,6 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         MinecraftServer server = ((ServerLevel) sp.level()).getServer();
         if (server == null) return false;
         return server.getPlayerList().isOp(sp.getGameProfile());
-    }
-
-    /**
-     * Index of the first Beacon of Life in the player's inventory, or -1 if there is none.
-     * Locating and consuming the beacon must scan identically, so both go through here.
-     */
-    public static int findBeaconSlot(Player player) {
-        var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return i;
-        }
-        return -1;
-    }
-
-    public static boolean hasBeaconInInventory(Player player) {
-        return findBeaconSlot(player) >= 0;
     }
 }
 

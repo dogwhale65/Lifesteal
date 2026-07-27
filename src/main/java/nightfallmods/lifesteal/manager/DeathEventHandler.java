@@ -37,14 +37,17 @@ public class DeathEventHandler {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (!(entity instanceof ServerPlayer player)) return;
-            if (source.getEntity() instanceof ServerPlayer killer && killer != player) {
-                handleKillReward(killer);
-            }
-            handleDeath(player);
+
+            ServerPlayer killer = source.getEntity() instanceof ServerPlayer sp && sp != player ? sp : null;
+            boolean heartLost = handleDeath(player);
+
+            if (killer == null) return;
+            if (heartLost) handleKillReward(killer);
+            else           announceNothingStolen(player, killer);
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)) {
+            if (entity instanceof ServerPlayer player && isAtFinalHeart(player) && !isAtHeartFloor(player)) {
                 beginDeathMessageSuppression(player);
             }
             return true;
@@ -53,18 +56,36 @@ public class DeathEventHandler {
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
             UUID id = newPlayer.getUUID();
             if (pendingHealthReduction.remove(id)) applyHeartLoss(newPlayer);
-            if (pendingSpectator.remove(id))       transitionToSpectator(newPlayer);
+            if (pendingSpectator.remove(id)) {
+                transitionToSpectator(newPlayer);
+                return;
+            }
+            if (!alive) GracePeriodManager.start(newPlayer);
         });
 
         Lifesteal.LOGGER.info("[Death] Event handlers registered.");
     }
 
-    private static void handleDeath(ServerPlayer player) {
+    /** Queues the consequences of a death; returns false when the heart floor absorbed it. */
+    private static boolean handleDeath(ServerPlayer player) {
+        if (isAtHeartFloor(player)) return false;
+
         if (isAtFinalHeart(player)) {
             handleFinalDeath(player);
         } else {
             pendingHealthReduction.add(player.getUUID());
         }
+        return true;
+    }
+
+    private static void announceNothingStolen(ServerPlayer victim, ServerPlayer attacker) {
+        victim.sendSystemMessage(Component.literal(
+                "You did not lose any hearts to " + attacker.getName().getString())
+                .withStyle(ChatFormatting.YELLOW));
+
+        attacker.sendSystemMessage(Component.literal(
+                victim.getName().getString() + " had no hearts to steal.")
+                .withStyle(ChatFormatting.RED));
     }
 
     private static void handleFinalDeath(ServerPlayer player) {
@@ -84,7 +105,8 @@ public class DeathEventHandler {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return;
 
-        double reduced = attr.getBaseValue() - Constants.HEART_VALUE;
+        double reduced = Math.max(attr.getBaseValue() - Constants.HEART_VALUE,
+                                  ServerConfig.getInstance().getMinimumHealth());
         attr.setBaseValue(reduced);
         player.setHealth((float) reduced);
         CraftedHeartTracker.clampTo(player.getUUID(), (int) (reduced / Constants.HEART_VALUE));
@@ -183,6 +205,16 @@ public class DeathEventHandler {
     private static boolean isAtFinalHeart(ServerPlayer player) {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         return attr == null || attr.getBaseValue() <= Constants.HEART_VALUE;
+    }
+
+    /** True when losing a heart would drop the player under the configured floor. */
+    private static boolean isAtHeartFloor(ServerPlayer player) {
+        ServerConfig cfg = ServerConfig.getInstance();
+        if (!cfg.minimumHeartsEnabled) return false;
+
+        AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
+        if (attr == null) return true;
+        return attr.getBaseValue() - Constants.HEART_VALUE < cfg.getMinimumHealth();
     }
 
     // Game rules live on the server here, not on the level: Level#getGameRules() does not exist

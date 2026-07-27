@@ -2,7 +2,6 @@ package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.Lifesteal;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -27,14 +26,17 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final BeaconAnchor anchor;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
-                                     String targetName, boolean targetBanned, ReviveSort returnSort) {
+                                     String targetName, boolean targetBanned, ReviveSort returnSort,
+                                     BeaconAnchor anchor) {
         super(MenuType.GENERIC_9x3, syncId);
         this.player     = playerInventory.player;
         this.server     = server;
         this.targetName = targetName;
         this.returnSort = returnSort;
+        this.anchor     = anchor;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
 
@@ -64,7 +66,8 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        return anchor.isIntact(player)
+                && (anchor.isAnchored() || ReviveScreenHandler.isOperator(player));
     }
 
     @Override
@@ -72,6 +75,10 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
+        if (!anchor.isIntact(player)) {
+            ReviveScreenHandler.closeMenu(player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_3X9_SIZE && clickType == ClickType.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -94,32 +101,16 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     }
 
     private void confirmRevive() {
-        // The beacon has to be re-checked here, not just in stillValid(): this menu leaves the
-        // player's own inventory slots interactive, so the beacon can be dropped after the menu
-        // was opened, and stillValid() is only re-evaluated once per tick — after the click
-        // packet that got us here has already been handled. Everything below runs synchronously
-        // on the server thread, so the check, the revive and the consume are atomic.
-        boolean opAuthorised = ReviveScreenHandler.isOperator(player);
-        int beaconSlot = ReviveScreenHandler.findBeaconSlot(player);
-
-        if (!opAuthorised && beaconSlot < 0) {
-            sendTo(Component.literal("You need a Beacon of Life to revive a player.")
-                    .withStyle(ChatFormatting.RED));
-            Lifesteal.LOGGER.info("[Revival] {} confirmed a revive without a Beacon of Life — refused.",
-                    player.getName().getString());
-            if (player instanceof ServerPlayer sp) sp.closeContainer();
-            return;
-        }
-
-        if (!logic.revivePlayer(targetName)) {
+        if (logic.revivePlayer(targetName)) {
+            sendTo(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
+            if (anchor.consume(player)) {
+                Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
+            }
+            ReviveScreenHandler.closeMenu(player);
+        } else {
             sendTo(Component.literal("Failed to revive " + targetName + ".").withStyle(ChatFormatting.RED));
             returnToList();
-            return;
         }
-
-        sendTo(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
-        consumeBeaconAt(beaconSlot);
-        if (player instanceof ServerPlayer sp) sp.closeContainer();
     }
 
     private void sendTo(Component message) {
@@ -130,19 +121,11 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer sp)) return;
         ReviveSort sortToRestore = returnSort;
         MinecraftServer srv = server;
+        BeaconAnchor currentAnchor = anchor;
         sp.openMenu(new SimpleMenuProvider(
-                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore),
+                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore, currentAnchor),
                 Component.literal("Revive a Player")
         ));
-    }
-
-    /** Consumes the beacon located before the revive ran. A slot of -1 means an operator revived without one. */
-    private void consumeBeaconAt(int slot) {
-        if (slot < 0) return;
-        ItemStack stack = player.getInventory().getItem(slot);
-        if (stack.getItem() != Items.BEACON_OF_LIFE) return;
-        stack.shrink(1);
-        Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
     }
 }
 

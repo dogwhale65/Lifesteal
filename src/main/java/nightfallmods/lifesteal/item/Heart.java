@@ -3,6 +3,9 @@ package nightfallmods.lifesteal.item;
 import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.config.ServerConfig;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
+import nightfallmods.lifesteal.manager.StorageRestrictionHandler;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -26,11 +29,19 @@ public class Heart extends Item {
         if (level.isClientSide()) return InteractionResult.PASS;
 
         ServerPlayer player = (ServerPlayer) user;
+        if (StorageRestrictionHandler.consumeUseSuppression(player)) return InteractionResult.FAIL;
+
         ServerConfig cfg = ServerConfig.getInstance();
 
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return InteractionResult.FAIL;
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) return InteractionResult.FAIL;
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            player.sendSystemMessage(
+                    Component.literal("You cannot have more than " + cfg.maxHearts + " hearts.")
+                            .withStyle(ChatFormatting.RED)
+            );
+            return InteractionResult.FAIL;
+        }
 
         attr.setBaseValue(attr.getBaseValue() + Constants.HEART_VALUE);
         if (cfg.fullHeartOnGain)

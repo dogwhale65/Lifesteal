@@ -27,7 +27,7 @@ public class PageManager {
 
         for (int i = startIndex; i < endIndex; i++) {
             PlayerCollector.Revivable entry = entries.get(i);
-            inventory.setItem(i - startIndex, factory.createPlayerHead(entry.name(), entry.banned()));
+            inventory.setItem(gridSlot(i - startIndex), factory.createPlayerHead(entry.name(), entry.banned()));
         }
 
         if (currentPage > 0) {
@@ -38,6 +38,13 @@ public class PageManager {
         if (currentPage < totalPages - 1) {
             inventory.setItem(Constants.SLOT_NEXT_PAGE, factory.createNextPageButton());
         }
+    }
+
+    /** Maps a 0-based position on the page onto the padded head grid. */
+    private static int gridSlot(int position) {
+        int row = Constants.GRID_FIRST_ROW + position / Constants.GRID_COLS;
+        int col = Constants.GRID_FIRST_COL + position % Constants.GRID_COLS;
+        return row * Constants.MENU_COLUMNS + col;
     }
 
     public boolean navigateToPreviousPage() {
