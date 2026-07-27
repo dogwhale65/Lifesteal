@@ -29,6 +29,13 @@ public class ServerConfig {
     public int craftedHeartCap   = 10;
     public int reviveHearts      = 3;
 
+    /**
+     * A floor on max health. While enabled a player sitting on the floor loses nothing on death and
+     * their killer earns nothing, which in practice turns elimination off for everyone at the floor.
+     */
+    public boolean minimumHeartsEnabled = false;
+    public int     minimumHearts        = 3;
+
     public boolean egaHeartLimitEnabled = false;
     public int egaHeartThreshold = 12;
 
@@ -39,7 +46,9 @@ public class ServerConfig {
     public String heartDeathSound            = Constants.SOUND_HEART_DEATH;
     public int    heartEquipSoundChunkRadius = 4;
 
-    public int gracePeriodMinutes = 0;
+    /** Post-respawn protection from player-dealt damage. Ends early on equipping armour or attacking. */
+    public boolean gracePeriodEnabled = false;
+    public int     gracePeriodSeconds = 1800;
 
     public boolean fullHeartOnGain = false;
 
@@ -129,6 +138,20 @@ public class ServerConfig {
     public double getMaxHealth()      { return maxHearts      * Constants.HEART_VALUE; }
     public double getStartingHealth() { return startingHearts * Constants.HEART_VALUE; }
     public double getReviveHealth()   { return reviveHearts   * Constants.HEART_VALUE; }
+    public double getMinimumHealth()  { return minimumHearts  * Constants.HEART_VALUE; }
+
+    /**
+     * True once a player can lose no more hearts. Compared with {@code <=} so that players already
+     * below the floor when an admin raises it are protected too, rather than stranded under it.
+     */
+    public boolean isAtHeartFloor(double baseHealth) {
+        return minimumHeartsEnabled && baseHealth <= getMinimumHealth();
+    }
+
+    /** Hearts a player may never withdraw or lose past — one heart unless the floor says otherwise. */
+    public int heartFloor() {
+        return minimumHeartsEnabled ? Math.max(1, minimumHearts) : 1;
+    }
 
     public CraftedHeartWithdrawAction craftedHeartWithdrawMode() {
         for (CraftedHeartWithdrawAction mode : CraftedHeartWithdrawAction.values()) {

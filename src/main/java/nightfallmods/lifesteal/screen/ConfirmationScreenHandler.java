@@ -27,6 +27,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final int beaconSlotAtOpen;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
                                      String targetName, boolean targetBanned, ReviveSort returnSort) {
@@ -37,6 +38,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         this.returnSort = returnSort;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
+        this.beaconSlotAtOpen = ReviveScreenHandler.findBeaconSlot(this.player);
 
         addSlots(playerInventory);
 
@@ -80,6 +82,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, clickType, player);
+        ReviveScreenHandler.closeIfBeaconMoved(this, this.player, beaconSlotAtOpen);
     }
 
     private void handleClick(ItemStack stack) {
@@ -119,7 +122,12 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
         sendTo(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
         consumeBeaconAt(beaconSlot);
-        if (player instanceof ServerPlayer sp) sp.closeContainer();
+        if (player instanceof ServerPlayer sp) {
+            sp.closeContainer();
+            // The beacon may have been used straight from the offhand, which this menu does not
+            // cover; only a full resync guarantees the client stops drawing the consumed stack.
+            sp.inventoryMenu.sendAllDataToRemote();
+        }
     }
 
     private void sendTo(Component message) {

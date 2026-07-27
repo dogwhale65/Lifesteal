@@ -26,6 +26,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final int beaconSlotAtOpen;
 
     private ReviveSort sort;
 
@@ -42,6 +43,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
         this.factory   = new ReviveItemFactory();
+        this.beaconSlotAtOpen = findBeaconSlot(this.player);
 
         addSlots(playerInventory);
         renderPage();
@@ -83,6 +85,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, clickType, player);
+        closeIfBeaconMoved(this, this.player, beaconSlotAtOpen);
     }
 
     private void handleClick(ItemStack stack) {
@@ -141,6 +144,25 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     public static boolean hasBeaconInInventory(Player player) {
         return findBeaconSlot(player) >= 0;
+    }
+
+    /**
+     * Closes the menu the moment the beacon leaves the slot it occupied when the menu was opened.
+     *
+     * The offhand and armour slots belong to the player's inventory but not to this menu, so a swap
+     * into them is never echoed back to the client: the server would later consume a beacon the
+     * client still draws, leaving a ghost copy behind. Rather than special-case every way a stack
+     * can leave a slot — offhand swap, drag, drop, cursor pickup — the menu stops trusting itself as
+     * soon as the beacon is not exactly where it was, and closes so the client resyncs.
+     */
+    static void closeIfBeaconMoved(AbstractContainerMenu menu, Player player, int slotAtOpen) {
+        if (slotAtOpen < 0) return;                                     // operator, opened without one
+        if (!(player instanceof ServerPlayer sp)) return;
+        if (sp.containerMenu != menu) return;                           // already replaced by another screen
+        if (player.getInventory().getItem(slotAtOpen).getItem() == Items.BEACON_OF_LIFE) return;
+
+        sp.closeContainer();
+        sp.inventoryMenu.sendAllDataToRemote();
     }
 }
 

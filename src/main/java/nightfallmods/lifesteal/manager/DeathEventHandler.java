@@ -37,14 +37,16 @@ public class DeathEventHandler {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (!(entity instanceof ServerPlayer player)) return;
+            // No heart leaves the victim at the floor, so there is none for the killer to take.
             if (source.getEntity() instanceof ServerPlayer killer && killer != player) {
-                handleKillReward(killer);
+                if (isAtHeartFloor(player)) denyKillReward(killer, player);
+                else                        handleKillReward(killer);
             }
             handleDeath(player);
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)) {
+            if (entity instanceof ServerPlayer player && isAtFinalHeart(player) && !isAtHeartFloor(player)) {
                 beginDeathMessageSuppression(player);
             }
             return true;
@@ -54,17 +56,31 @@ public class DeathEventHandler {
             UUID id = newPlayer.getUUID();
             if (pendingHealthReduction.remove(id)) applyHeartLoss(newPlayer);
             if (pendingSpectator.remove(id))       transitionToSpectator(newPlayer);
+            else if (!alive)                       GracePeriodManager.grant(newPlayer);  // not an End portal return
         });
 
         Lifesteal.LOGGER.info("[Death] Event handlers registered.");
     }
 
     private static void handleDeath(ServerPlayer player) {
+        // The floor is checked before elimination: a player who cannot lose a heart cannot lose
+        // their last one either, which is what makes the toggle switch death bans off.
+        if (isAtHeartFloor(player)) return;
+
         if (isAtFinalHeart(player)) {
             handleFinalDeath(player);
         } else {
             pendingHealthReduction.add(player.getUUID());
         }
+    }
+
+    private static void denyKillReward(ServerPlayer killer, ServerPlayer victim) {
+        killer.sendSystemMessage(Component.literal(
+                        victim.getName().getString() + " had no hearts to steal.")
+                .withStyle(ChatFormatting.RED), true);
+        victim.sendSystemMessage(Component.literal(
+                        "You did not lose any hearts to " + killer.getName().getString())
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     private static void handleFinalDeath(ServerPlayer player) {
@@ -84,7 +100,9 @@ public class DeathEventHandler {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return;
 
+        ServerConfig cfg = ServerConfig.getInstance();
         double reduced = attr.getBaseValue() - Constants.HEART_VALUE;
+        if (cfg.minimumHeartsEnabled) reduced = Math.max(reduced, cfg.getMinimumHealth());
         attr.setBaseValue(reduced);
         player.setHealth((float) reduced);
         CraftedHeartTracker.clampTo(player.getUUID(), (int) (reduced / Constants.HEART_VALUE));
@@ -183,6 +201,12 @@ public class DeathEventHandler {
     private static boolean isAtFinalHeart(ServerPlayer player) {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         return attr == null || attr.getBaseValue() <= Constants.HEART_VALUE;
+    }
+
+    /** True when the configured heart floor is on and this player has already reached it. */
+    private static boolean isAtHeartFloor(ServerPlayer player) {
+        AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
+        return attr != null && ServerConfig.getInstance().isAtHeartFloor(attr.getBaseValue());
     }
 
     private static void beginDeathMessageSuppression(ServerPlayer player) {

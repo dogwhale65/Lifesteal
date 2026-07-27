@@ -42,9 +42,10 @@ public class Withdraw {
             return 0;
         }
 
+        ServerConfig cfg = ServerConfig.getInstance();
         int requested = IntegerArgumentType.getInteger(ctx, "amount");
         int currentHearts = (int) Math.floor(attr.getBaseValue() / Constants.HEART_VALUE);
-        int maxWithdrawable = currentHearts - 1;
+        int maxWithdrawable = currentHearts - cfg.heartFloor();
 
         if (maxWithdrawable <= 0) {
             source.sendFailure(Component.literal("You do not have enough hearts to withdraw."));
@@ -52,7 +53,6 @@ public class Withdraw {
         }
 
         int amount = Math.min(requested, maxWithdrawable);
-        ServerConfig cfg = ServerConfig.getInstance();
 
         int craftedGiven = switch (cfg.craftedHeartWithdrawMode()) {
             case SPECIFIC -> Math.min(amount, Math.min(CraftedHeartTracker.getCount(player.getUUID()), currentHearts));

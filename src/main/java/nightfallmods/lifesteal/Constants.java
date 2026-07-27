@@ -12,7 +12,17 @@ public final class Constants {
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+    public static final int GRID_COLUMNS    = 9;
+
+    /**
+     * Heads sit inside a border of filler: one empty row above and one empty column either side,
+     * running right up to the navigation row (which spans the bottom row).
+     */
+    public static final int HEAD_FIRST_ROW  = 1;
+    public static final int HEAD_FIRST_COL  = 1;
+    public static final int HEAD_ROWS       = 4;
+    public static final int HEAD_COLUMNS    = 7;
+    public static final int ITEMS_PER_PAGE  = HEAD_ROWS * HEAD_COLUMNS;
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;

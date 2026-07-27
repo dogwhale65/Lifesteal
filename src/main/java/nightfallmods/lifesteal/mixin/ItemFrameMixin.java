@@ -23,7 +23,10 @@ public class ItemFrameMixin {
             if (player instanceof ServerPlayer sp) {
                 StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
             }
-            cir.setReturnValue(InteractionResult.FAIL);
+            // CONSUME, not FAIL: the client only stops at an entity interaction that consumed the
+            // action. On FAIL it falls through to using the item, which eats the heart and prints
+            // the heart-cap message on top of the action bar warning sent above.
+            cir.setReturnValue(InteractionResult.CONSUME);
         }
     }
 }
