@@ -2,7 +2,6 @@ package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.Lifesteal;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -27,14 +26,17 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final BeaconAnchor anchor;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
-                                     String targetName, boolean targetBanned, ReviveSort returnSort) {
+                                     String targetName, boolean targetBanned, ReviveSort returnSort,
+                                     BeaconAnchor anchor) {
         super(MenuType.GENERIC_9x3, syncId);
         this.player     = playerInventory.player;
         this.server     = server;
         this.targetName = targetName;
         this.returnSort = returnSort;
+        this.anchor     = anchor;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
 
@@ -64,7 +66,8 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        return anchor.isIntact(player)
+                && (anchor.isAnchored() || ReviveScreenHandler.isOperator(player));
     }
 
     @Override
@@ -72,6 +75,10 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ContainerInput containerInput, Player player) {
+        if (!anchor.isIntact(player)) {
+            ReviveScreenHandler.closeMenu(player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_3X9_SIZE && containerInput == ContainerInput.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -96,8 +103,10 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private void confirmRevive() {
         if (logic.revivePlayer(targetName)) {
             player.sendSystemMessage(Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
-            consumeBeaconIfPresent();
-            if (player instanceof ServerPlayer sp) sp.closeContainer();
+            if (anchor.consume(player)) {
+                Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
+            }
+            ReviveScreenHandler.closeMenu(player);
         } else {
             player.sendSystemMessage(Component.literal("Failed to revive " + targetName + ".").withStyle(ChatFormatting.RED));
             returnToList();
@@ -108,22 +117,11 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer sp)) return;
         ReviveSort sortToRestore = returnSort;
         MinecraftServer srv = server;
+        BeaconAnchor currentAnchor = anchor;
         sp.openMenu(new SimpleMenuProvider(
-                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore),
+                (syncId, inv, p) -> new ReviveScreenHandler(syncId, inv, srv, sortToRestore, currentAnchor),
                 Component.literal("Revive a Player")
         ));
-    }
-
-    private void consumeBeaconIfPresent() {
-        var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack.getItem() == Items.BEACON_OF_LIFE) {
-                stack.shrink(1);
-                Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
-                return;
-            }
-        }
     }
 }
 

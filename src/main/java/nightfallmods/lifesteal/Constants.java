@@ -9,10 +9,24 @@ public final class Constants {
     public static final int    CRAFTED_HEART_CAP  = 10;
     public static final int    EGA_HEART_THRESHOLD = 12;
     public static final int    REVIVE_HEARTS      = 3;
+    public static final int    MINIMUM_HEARTS     = 1;
+    public static final int    GRACE_PERIOD_SECONDS = 1800;
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+
+    public static final int MENU_COLUMNS    = 9;
+
+    // The head grid is inset by a row of padding on top and a column on each side; the
+    // navigation row doubles as the bottom padding, so no empty row sits above it.
+    public static final int GRID_FIRST_ROW  = 1;
+    public static final int GRID_LAST_ROW   = 4;
+    public static final int GRID_FIRST_COL  = 1;
+    public static final int GRID_LAST_COL   = 7;
+
+    public static final int GRID_ROWS       = GRID_LAST_ROW - GRID_FIRST_ROW + 1;
+    public static final int GRID_COLS       = GRID_LAST_COL - GRID_FIRST_COL + 1;
+    public static final int ITEMS_PER_PAGE  = GRID_ROWS * GRID_COLS;
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;

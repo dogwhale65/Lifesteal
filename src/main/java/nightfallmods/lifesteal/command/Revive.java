@@ -1,6 +1,7 @@
 package nightfallmods.lifesteal.command;
 
 import com.mojang.brigadier.context.CommandContext;
+import nightfallmods.lifesteal.screen.BeaconAnchor;
 import nightfallmods.lifesteal.screen.ReviveScreenHandler;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
@@ -33,7 +34,7 @@ public class Revive {
 
         MinecraftServer server = source.getServer();
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server),
+                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server, BeaconAnchor.none()),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);

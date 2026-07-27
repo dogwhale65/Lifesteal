@@ -4,6 +4,7 @@ import nightfallmods.lifesteal.Constants;
 import nightfallmods.lifesteal.config.ServerConfig;
 import nightfallmods.lifesteal.manager.CraftedHeartTracker;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
+import nightfallmods.lifesteal.manager.StorageRestrictionHandler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -34,6 +35,8 @@ public class CraftedHeart extends Item {
         }
 
         ServerPlayer player = (ServerPlayer) user;
+        if (StorageRestrictionHandler.consumeUseSuppression(player)) return InteractionResult.FAIL;
+
         ServerConfig cfg = ServerConfig.getInstance();
 
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
@@ -45,13 +48,17 @@ public class CraftedHeart extends Item {
         if (attr.getBaseValue() >= cap) {
             player.sendSystemMessage(
                     Component.literal("Crafted Hearts cannot raise your health beyond "
-                                    + cfg.craftedHeartCap + " hearts. Earn more through combat.")
+                                    + cfg.craftedHeartCap + " hearts.")
                             .withStyle(ChatFormatting.RED)
             );
             return InteractionResult.FAIL;
         }
 
         if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            player.sendSystemMessage(
+                    Component.literal("You cannot have more than " + cfg.maxHearts + " hearts.")
+                            .withStyle(ChatFormatting.RED)
+            );
             return InteractionResult.FAIL;
         }
 
