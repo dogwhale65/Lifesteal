@@ -12,7 +12,19 @@ public final class Constants {
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+
+    // The revive grid is inset by one filler row on top and one filler column down each side.
+    // Row 5 stays the navigation row, and the heads run right up against it — no gap between.
+    public static final int GRID_FIRST_ROW  = 1;
+    public static final int GRID_FIRST_COL  = 1;
+    public static final int GRID_ROWS       = 4;
+    public static final int GRID_COLS       = 7;
+    public static final int ITEMS_PER_PAGE  = GRID_ROWS * GRID_COLS;
+
+    /** Container slot holding the {@code index}-th head of a page. */
+    public static int gridSlot(int index) {
+        return (GRID_FIRST_ROW + index / GRID_COLS) * 9 + GRID_FIRST_COL + index % GRID_COLS;
+    }
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;

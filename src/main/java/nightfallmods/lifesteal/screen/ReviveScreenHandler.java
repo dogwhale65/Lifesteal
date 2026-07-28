@@ -1,7 +1,6 @@
 package nightfallmods.lifesteal.screen;
 
 import nightfallmods.lifesteal.Constants;
-import nightfallmods.lifesteal.item.Items;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -26,18 +25,21 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconAnchor anchor;
 
     private ReviveSort sort;
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server) {
-        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED);
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, int beaconSlot) {
+        this(syncId, playerInventory, server, ReviveSort.EARLIEST_BANNED, beaconSlot);
     }
 
-    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server, ReviveSort sort) {
+    public ReviveScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
+                               ReviveSort sort, int beaconSlot) {
         super(MenuType.GENERIC_9x6, syncId);
         this.player    = playerInventory.player;
         this.server    = server;
         this.sort      = sort;
+        this.anchor    = BeaconAnchor.at(beaconSlot);
         this.inventory = new SimpleContainer(Constants.CHEST_6X9_SIZE);
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
@@ -67,7 +69,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return menuValid(player, anchor);
     }
 
     @Override
@@ -75,6 +77,11 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
+        // The anchor is re-checked on both sides of the click: before, so a beacon that moved on an
+        // earlier click can never drive a revive, and after, so a click that moves the beacon itself
+        // closes the menu right away rather than a tick later via stillValid().
+        if (!menuValid(player, anchor)) { abort(player, anchor); return; }
+
         if (slotIndex >= 0 && slotIndex < Constants.CHEST_6X9_SIZE && clickType == ClickType.PICKUP) {
             Slot slot = this.slots.get(slotIndex);
             if (slot != null && slot.hasItem()) {
@@ -83,6 +90,8 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
             }
         }
         super.clicked(slotIndex, button, clickType, player);
+
+        if (!menuValid(player, anchor)) abort(player, anchor);
     }
 
     private void handleClick(ItemStack stack) {
@@ -113,8 +122,9 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
         if (player instanceof ServerPlayer sp) {
             ReviveSort currentSort = sort;
+            int beaconSlot = anchor.slot();
             sp.openMenu(new SimpleMenuProvider(
-                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort),
+                    (syncId, inv, p) -> new ConfirmationScreenHandler(syncId, inv, server, target, isBanned, currentSort, beaconSlot),
                     Component.literal("Revive " + target + "?")
             ));
         }
@@ -128,19 +138,18 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     }
 
     /**
-     * Index of the first Beacon of Life in the player's inventory, or -1 if they have none.
-     * Callers that consume the beacon must look it up at the moment they consume it — the
-     * player can drop or move the stack while a revive menu is open.
+     * A beacon-opened menu lives and dies with its anchored beacon; an operator-opened one
+     * (via {@code /revive}, which consumes nothing) only needs the operator to stay an operator.
+     * Invalidating also queues the explanation, so the tick-driven close is not silent.
      */
-    public static int findBeaconSlot(Player player) {
-        var inv = player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return i;
-        }
-        return -1;
+    static boolean menuValid(Player player, BeaconAnchor anchor) {
+        boolean valid = anchor.present() ? anchor.intact(player) : isOperator(player);
+        if (!valid) anchor.warnClosed(player);
+        return valid;
     }
 
-    public static boolean hasBeaconInInventory(Player player) {
-        return findBeaconSlot(player) >= 0;
+    static void abort(Player player, BeaconAnchor anchor) {
+        anchor.warnClosed(player);
+        if (player instanceof ServerPlayer sp) sp.closeContainer();
     }
 }

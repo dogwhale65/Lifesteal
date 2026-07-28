@@ -39,7 +39,11 @@ public class ServerConfig {
     public String heartDeathSound            = Constants.SOUND_HEART_DEATH;
     public int    heartEquipSoundChunkRadius = 4;
 
-    public int gracePeriodMinutes = 0;
+    public boolean minimumHeartsEnabled = false;
+    public int minimumHearts = 1;
+
+    public boolean gracePeriodEnabled = false;
+    public int gracePeriodSeconds = 1800;
 
     public boolean fullHeartOnGain = false;
 
@@ -129,6 +133,21 @@ public class ServerConfig {
     public double getMaxHealth()      { return maxHearts      * Constants.HEART_VALUE; }
     public double getStartingHealth() { return startingHearts * Constants.HEART_VALUE; }
     public double getReviveHealth()   { return reviveHearts   * Constants.HEART_VALUE; }
+
+    /** Hearts a player can never drop below. 1 when the floor is off — vanilla behaviour. */
+    public int heartFloor() {
+        return minimumHeartsEnabled ? Math.max(1, minimumHearts) : 1;
+    }
+
+    /** Health a player can never drop below, or 0 when the floor is off. */
+    public double getMinimumHealth() {
+        return minimumHeartsEnabled ? Math.max(1, minimumHearts) * Constants.HEART_VALUE : 0.0;
+    }
+
+    /** True once {@code baseHealth} has reached the configured floor and no heart may be taken. */
+    public boolean isAtHeartFloor(double baseHealth) {
+        return minimumHeartsEnabled && baseHealth <= getMinimumHealth();
+    }
 
     public CraftedHeartWithdrawAction craftedHeartWithdrawMode() {
         for (CraftedHeartWithdrawAction mode : CraftedHeartWithdrawAction.values()) {

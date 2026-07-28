@@ -23,7 +23,11 @@ public class ItemFrameMixin {
             if (player instanceof ServerPlayer sp) {
                 StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
             }
-            cir.setReturnValue(InteractionResult.FAIL);
+            // CONSUME, not FAIL: a FAIL here does not consume the action, so the client falls
+            // through to using the held item and the Heart/Crafted Heart also fires its own
+            // "cannot go above N hearts" message on top of the storage warning. CONSUME swallows
+            // the interaction outright (and, unlike SUCCESS, plays no arm swing).
+            cir.setReturnValue(InteractionResult.CONSUME);
         }
     }
 }

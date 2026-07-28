@@ -33,10 +33,19 @@ public class StorageRestrictionHandler {
 
     public static void notifyRestricted(ServerPlayer player, ItemStack stack) {
         player.sendSystemMessage(
-                Component.literal(stack.getHoverName().getString() + " cannot be stored.")
-                        .withStyle(ChatFormatting.RED),
+                Component.literal(plainName(stack) + " cannot be stored.")
+                        .withStyle(style -> style.withColor(ChatFormatting.RED)),
                 true
         );
+    }
+
+    /**
+     * Item names carry their own colour, and the vanilla ones resolve to legacy §-coded strings —
+     * either would repaint part of the warning. Strip both so the whole line reads red.
+     */
+    private static String plainName(ItemStack stack) {
+        String name = ChatFormatting.stripFormatting(stack.getHoverName().getString());
+        return name == null ? "" : name;
     }
 }
 

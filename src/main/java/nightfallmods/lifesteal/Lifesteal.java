@@ -11,6 +11,7 @@ import nightfallmods.lifesteal.manager.CraftedHeartTracker;
 import nightfallmods.lifesteal.manager.DeathEventHandler;
 import nightfallmods.lifesteal.manager.EGAEffectStripper;
 import nightfallmods.lifesteal.manager.EliminatedPlayersTracker;
+import nightfallmods.lifesteal.manager.GracePeriodManager;
 import nightfallmods.lifesteal.manager.InventoryEnforcer;
 import nightfallmods.lifesteal.manager.RevivedPlayersManager;
 import nightfallmods.lifesteal.manager.UniqueItemManager;
@@ -33,6 +34,7 @@ public class Lifesteal implements ModInitializer {
         CustomRecipeLoader.writeDefaultTemplates();
         Items.registerModItems();
         DeathEventHandler.register();
+        GracePeriodManager.register();
         RevivedPlayersManager.register();
         EGAEffectStripper.register();
         Withdraw.register();

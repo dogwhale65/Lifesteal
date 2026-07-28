@@ -32,8 +32,10 @@ public class Revive {
         }
 
         MinecraftServer server = source.getServer();
+        // Operator command: no beacon anchor, so it neither consumes a beacon nor closes when the
+        // operator reshuffles their inventory.
         MenuProvider factory = new SimpleMenuProvider(
-                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server),
+                (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, server, -1),
                 Component.literal("Revive a Player")
         );
         player.openMenu(factory);
