@@ -12,7 +12,15 @@ public final class Constants {
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+    public static final int CHEST_COLUMNS   = 9;
+
+    // The revive list is inset by one row on top and one column on each side. The bottom row is
+    // the navigation bar, so the heads run straight into it with no padding row between.
+    public static final int CONTENT_FIRST_ROW = 1;
+    public static final int CONTENT_FIRST_COL = 1;
+    public static final int CONTENT_ROWS      = 4;
+    public static final int CONTENT_COLS      = 7;
+    public static final int ITEMS_PER_PAGE    = CONTENT_ROWS * CONTENT_COLS;
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;

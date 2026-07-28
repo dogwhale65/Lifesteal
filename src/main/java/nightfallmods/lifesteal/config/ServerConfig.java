@@ -29,6 +29,10 @@ public class ServerConfig {
     public int craftedHeartCap   = 10;
     public int reviveHearts      = 3;
 
+    /** A floor on hearts. At the floor a death costs nothing, which also rules out elimination. */
+    public boolean minimumHeartsEnabled = false;
+    public int     minimumHearts        = 1;
+
     public boolean egaHeartLimitEnabled = false;
     public int egaHeartThreshold = 12;
 
@@ -39,7 +43,9 @@ public class ServerConfig {
     public String heartDeathSound            = Constants.SOUND_HEART_DEATH;
     public int    heartEquipSoundChunkRadius = 4;
 
-    public int gracePeriodMinutes = 0;
+    /** Post-respawn immunity to player-initiated damage. Off by default; 1800s is 30 minutes. */
+    public boolean gracePeriodEnabled = false;
+    public int     gracePeriodSeconds = 1800;
 
     public boolean fullHeartOnGain = false;
 
@@ -127,6 +133,7 @@ public class ServerConfig {
     }
 
     public double getMaxHealth()      { return maxHearts      * Constants.HEART_VALUE; }
+    public double getMinimumHealth()  { return Math.max(1, minimumHearts) * Constants.HEART_VALUE; }
     public double getStartingHealth() { return startingHearts * Constants.HEART_VALUE; }
     public double getReviveHealth()   { return reviveHearts   * Constants.HEART_VALUE; }
 

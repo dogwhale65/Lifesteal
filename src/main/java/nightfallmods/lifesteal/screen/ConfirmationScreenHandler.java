@@ -26,6 +26,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final BeaconMenuGuard guard;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
                                      String targetName, boolean targetBanned, ReviveSort returnSort) {
@@ -36,6 +37,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         this.returnSort = returnSort;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
+        this.guard      = new BeaconMenuGuard(this.player);
 
         addSlots(playerInventory);
 
@@ -62,7 +64,14 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
+    public void broadcastChanges() {
+        super.broadcastChanges();
+        guard.closeIfBeaconMoved(this);
+    }
+
+    @Override
     public boolean stillValid(Player player) {
+        if (!guard.beaconUnmoved()) return false;
         return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
     }
 

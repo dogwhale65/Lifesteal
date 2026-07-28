@@ -1,5 +1,6 @@
 package nightfallmods.lifesteal.item;
 
+import nightfallmods.lifesteal.manager.StorageRestrictionHandler;
 import nightfallmods.lifesteal.screen.ReviveScreenHandler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,9 @@ public class BeaconOfLife extends Item {
         if (level.isClientSide()) return InteractionResultHolder.pass(stack);
 
         ServerPlayer player = (ServerPlayer) user;
+
+        // A refused item frame placement must not also pop the revive menu open.
+        if (StorageRestrictionHandler.wasRejectedByItemFrame(player)) return InteractionResultHolder.fail(stack);
 
         MenuProvider factory = new SimpleMenuProvider(
                 (syncId, inventory, p) -> new ReviveScreenHandler(syncId, inventory, ((ServerLevel) level).getServer()),

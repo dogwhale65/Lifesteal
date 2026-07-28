@@ -37,14 +37,21 @@ public class DeathEventHandler {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (!(entity instanceof ServerPlayer player)) return;
-            if (source.getEntity() instanceof ServerPlayer killer && killer != player) {
-                handleKillReward(killer);
+            ServerPlayer killer = source.getEntity() instanceof ServerPlayer k && k != player ? k : null;
+
+            // Nothing changes hands at the floor: the victim keeps every heart, so there is no
+            // heart for the killer to take either.
+            if (isAtMinimumHearts(player)) {
+                notifyNothingStolen(player, killer);
+                return;
             }
+
+            if (killer != null) handleKillReward(killer);
             handleDeath(player);
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)) {
+            if (entity instanceof ServerPlayer player && isAtFinalHeart(player) && !isAtMinimumHearts(player)) {
                 beginDeathMessageSuppression(player);
             }
             return true;
@@ -54,6 +61,9 @@ public class DeathEventHandler {
             UUID id = newPlayer.getUUID();
             if (pendingHealthReduction.remove(id)) applyHeartLoss(newPlayer);
             if (pendingSpectator.remove(id))       transitionToSpectator(newPlayer);
+
+            // AFTER_RESPAWN also fires for the walk-out-of-the-End respawn, which is not a death.
+            if (!alive) GracePeriodManager.begin(newPlayer);
         });
 
         Lifesteal.LOGGER.info("[Death] Event handlers registered.");
@@ -84,7 +94,9 @@ public class DeathEventHandler {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return;
 
+        ServerConfig cfg = ServerConfig.getInstance();
         double reduced = attr.getBaseValue() - Constants.HEART_VALUE;
+        if (cfg.minimumHeartsEnabled) reduced = Math.max(reduced, cfg.getMinimumHealth());
         attr.setBaseValue(reduced);
         player.setHealth((float) reduced);
         CraftedHeartTracker.clampTo(player.getUUID(), (int) (reduced / Constants.HEART_VALUE));
@@ -183,6 +195,23 @@ public class DeathEventHandler {
     private static boolean isAtFinalHeart(ServerPlayer player) {
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         return attr == null || attr.getBaseValue() <= Constants.HEART_VALUE;
+    }
+
+    private static boolean isAtMinimumHearts(ServerPlayer player) {
+        ServerConfig cfg = ServerConfig.getInstance();
+        if (!cfg.minimumHeartsEnabled) return false;
+        AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
+        return attr != null && attr.getBaseValue() <= cfg.getMinimumHealth();
+    }
+
+    private static void notifyNothingStolen(ServerPlayer victim, ServerPlayer attacker) {
+        if (attacker == null) return;
+        victim.sendSystemMessage(Component.literal(
+                "You did not lose any hearts to " + attacker.getName().getString())
+                .withStyle(ChatFormatting.YELLOW));
+        attacker.sendSystemMessage(Component.literal(
+                victim.getName().getString() + " had no hearts to steal.")
+                .withStyle(ChatFormatting.RED));
     }
 
     private static void beginDeathMessageSuppression(ServerPlayer player) {

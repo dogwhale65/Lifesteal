@@ -22,6 +22,7 @@ public class ItemFrameMixin {
         if (StorageRestrictionHandler.isStorageRestricted(player.getItemInHand(hand))) {
             if (player instanceof ServerPlayer sp) {
                 StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
+                StorageRestrictionHandler.markFrameRejection(sp);
             }
             cir.setReturnValue(InteractionResult.FAIL);
         }

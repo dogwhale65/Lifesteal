@@ -25,6 +25,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconMenuGuard guard;
 
     private ReviveSort sort;
 
@@ -41,6 +42,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
         this.factory   = new ReviveItemFactory();
+        this.guard     = new BeaconMenuGuard(this.player);
 
         addSlots(playerInventory);
         renderPage();
@@ -65,7 +67,14 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
+    public void broadcastChanges() {
+        super.broadcastChanges();
+        guard.closeIfBeaconMoved(this);
+    }
+
+    @Override
     public boolean stillValid(Player player) {
+        if (!guard.beaconUnmoved()) return false;
         return isOperator(player) || hasBeaconInInventory(player);
     }
 
