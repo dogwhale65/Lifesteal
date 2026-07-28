@@ -5,6 +5,7 @@ import nightfallmods.lifesteal.Lifesteal;
 import nightfallmods.lifesteal.item.Items;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -26,6 +27,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final BeaconGuard beacon;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
                                      String targetName, boolean targetBanned, ReviveSort returnSort) {
@@ -36,6 +38,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         this.returnSort = returnSort;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
+        this.beacon     = BeaconGuard.capture(this.player);
 
         addSlots(playerInventory);
 
@@ -61,9 +64,11 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
             addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
     }
 
+    /** Same contract as the list screen: the beacon this menu was opened against may not move. */
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        if (beacon.hasMoved(player)) return false;
+        return beacon.isBound() || ReviveScreenHandler.isOperator(player);
     }
 
     @Override
@@ -93,17 +98,21 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     }
 
     /**
-     * The beacon is re-checked here rather than when the menu was opened. An arbitrary amount of
+     * The beacon is re-checked here rather than trusted from open time. An arbitrary amount of
      * wall-clock time passes between opening the menu and clicking confirm, during which the player
-     * can drop, stash, or destroy the beacon — so a reference (or a "had a beacon" flag) captured at
-     * open time is not evidence that the beacon is still owned. Locating the slot, reviving, and
-     * shrinking the stack all happen within this one call, so nothing can run in between.
+     * can drop, stash, or destroy the beacon. {@link BeaconGuard} normally closes the menu before it
+     * gets this far; the check is repeated because reviving and spending the beacon must be settled
+     * inside this one call, with nothing able to run in between.
      */
     private void confirmRevive() {
         boolean operator = ReviveScreenHandler.isOperator(player);
-        int beaconSlot = ReviveScreenHandler.findBeaconSlot(player);
 
-        if (beaconSlot < 0 && !operator) {
+        if (beacon.hasMoved(player)) {
+            closeMenu();
+            return;
+        }
+
+        if (!beacon.isBound() && !operator) {
             player.sendSystemMessage(
                     Component.literal("You no longer have a Beacon of Life.").withStyle(ChatFormatting.RED));
             closeMenu();
@@ -118,7 +127,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         }
 
         // Operators may revive without a beacon, but a beacon in hand is still spent.
-        if (beaconSlot >= 0) consumeBeaconAt(beaconSlot);
+        if (beacon.isBound()) consumeBeaconAt(beacon.slot());
 
         player.sendSystemMessage(
                 Component.literal("Revived " + targetName + ".").withStyle(ChatFormatting.GREEN));
@@ -126,14 +135,30 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     }
 
     private void consumeBeaconAt(int slot) {
-        ItemStack stack = player.getInventory().getItem(slot);
+        Inventory inv = player.getInventory();
+        ItemStack stack = inv.getItem(slot);
         if (stack.getItem() != Items.BEACON_OF_LIFE) {
             Lifesteal.LOGGER.warn("[Revival] Beacon of Life vanished from slot {} during {}'s revive.",
                     slot, player.getName().getString());
             return;
         }
         stack.shrink(1);
+        if (stack.isEmpty()) inv.setItem(slot, ItemStack.EMPTY);
+        syncInventorySlot(slot);
         Lifesteal.LOGGER.info("[Revival] Beacon of Life consumed by {}.", player.getName().getString());
+    }
+
+    /**
+     * This menu's slots cover the hotbar and main inventory but not the offhand, and
+     * {@code broadcastChanges} only syncs slots a menu owns. A beacon spent from the offhand would
+     * therefore stay on the client's screen as a ghost, so the slot is pushed directly instead —
+     * container id -2 addresses the player inventory by raw slot index.
+     */
+    private void syncInventorySlot(int slot) {
+        if (player instanceof ServerPlayer sp) {
+            sp.connection.send(new ClientboundContainerSetSlotPacket(
+                    -2, 0, slot, player.getInventory().getItem(slot)));
+        }
     }
 
     private void closeMenu() {

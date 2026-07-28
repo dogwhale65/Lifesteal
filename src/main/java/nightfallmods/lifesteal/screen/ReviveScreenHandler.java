@@ -25,6 +25,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconGuard beacon;
 
     private ReviveSort sort;
 
@@ -41,6 +42,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
         this.factory   = new ReviveItemFactory();
+        this.beacon    = BeaconGuard.capture(this.player);
 
         addSlots(playerInventory);
         renderPage();
@@ -64,9 +66,15 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         pages.populateCurrentPage(inventory, collector.getRevivables(), factory, sort);
     }
 
+    /**
+     * Vanilla calls this every player tick and closes the menu the moment it returns false, so a
+     * beacon that moves anywhere — offhand, another slot, the ground, the cursor — shuts the screen
+     * without any extra plumbing. Operators who opened the menu without a beacon keep it open.
+     */
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        if (beacon.hasMoved(player)) return false;
+        return beacon.isBound() || isOperator(player);
     }
 
     @Override
@@ -126,15 +134,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         return server.getPlayerList().isOp(sp.getGameProfile());
     }
 
-    public static boolean hasBeaconInInventory(Player player) {
-        return findBeaconSlot(player) >= 0;
-    }
-
-    /**
-     * Index of the first inventory slot holding a Beacon of Life, or -1 if the player has none.
-     * Callers that consume the beacon must resolve the slot at the moment they act on it: a
-     * reference captured when a menu was opened can be stale by the time the menu is used.
-     */
+    /** Index of the first inventory slot holding a Beacon of Life, or -1 if the player has none. */
     public static int findBeaconSlot(Player player) {
         var inv = player.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {

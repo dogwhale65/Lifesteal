@@ -3,6 +3,7 @@ package nightfallmods.lifesteal.item;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -47,5 +48,10 @@ public abstract class LifestealItem extends Item {
 
     protected static Component colored(String text, ChatFormatting color) {
         return Component.literal(text).withStyle(color);
+    }
+
+    /** Tells the player why the item did nothing. Refusals are always red, end to end. */
+    protected static void deny(ServerPlayer player, String reason) {
+        player.sendSystemMessage(Component.literal(reason).withStyle(ChatFormatting.RED));
     }
 }

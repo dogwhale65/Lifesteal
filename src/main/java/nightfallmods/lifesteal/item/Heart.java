@@ -41,7 +41,11 @@ public class Heart extends LifestealItem {
 
         AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
         if (attr == null) return InteractionResultHolder.fail(itemStack);
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) return InteractionResultHolder.fail(itemStack);
+
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            deny(player, "You cannot have more than " + cfg.maxHearts + " hearts.");
+            return InteractionResultHolder.fail(itemStack);
+        }
 
         attr.setBaseValue(attr.getBaseValue() + Constants.HEART_VALUE);
         if (cfg.fullHeartOnGain)

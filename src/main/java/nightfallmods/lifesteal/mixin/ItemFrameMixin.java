@@ -23,7 +23,13 @@ public class ItemFrameMixin {
             if (player instanceof ServerPlayer sp) {
                 StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
             }
-            cir.setReturnValue(InteractionResult.FAIL);
+            /*
+             * CONSUME, not FAIL. Minecraft.startUseItem() only stops after an entity interaction
+             * when the result consumes the action, and FAIL does not — so the click would fall
+             * through to the item's own use(), stacking a second refusal ("Crafted Hearts cannot
+             * raise your health beyond N hearts") on top of the framing message.
+             */
+            cir.setReturnValue(InteractionResult.CONSUME);
         }
     }
 }

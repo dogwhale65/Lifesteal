@@ -50,17 +50,15 @@ public class CraftedHeart extends LifestealItem {
             return InteractionResultHolder.fail(itemStack);
         }
 
-        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
-        if (attr.getBaseValue() >= cap) {
-            player.sendSystemMessage(
-                    Component.literal("Crafted Hearts cannot raise your health beyond "
-                                    + cfg.craftedHeartCap + " hearts. Earn more through combat.")
-                            .withStyle(ChatFormatting.RED)
-            );
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+            deny(player, "You cannot have more than " + cfg.maxHearts + " hearts.");
             return InteractionResultHolder.fail(itemStack);
         }
 
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
+        if (attr.getBaseValue() >= cap) {
+            deny(player, "Crafted Hearts cannot raise your health beyond "
+                    + cfg.craftedHeartCap + " hearts.");
             return InteractionResultHolder.fail(itemStack);
         }
 

@@ -31,10 +31,14 @@ public class StorageRestrictionHandler {
                 || container instanceof ContainerEntity;
     }
 
+    /**
+     * The item's name is flattened to plain text before it goes into the line, so the whole refusal
+     * reads in red rather than carrying the item's own name colour into the middle of it.
+     */
     public static void notifyRestricted(ServerPlayer player, ItemStack stack) {
         player.sendSystemMessage(
                 Component.literal(stack.getHoverName().getString() + " cannot be stored.")
-                        .withStyle(ChatFormatting.RED),
+                        .withStyle(style -> style.withColor(ChatFormatting.RED).withItalic(false)),
                 true
         );
     }
