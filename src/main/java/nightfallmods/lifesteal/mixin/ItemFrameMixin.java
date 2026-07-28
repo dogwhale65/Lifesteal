@@ -21,9 +21,13 @@ public class ItemFrameMixin {
 
         if (StorageRestrictionHandler.isStorageRestricted(player.getItemInHand(hand))) {
             if (player instanceof ServerPlayer sp) {
-                StorageRestrictionHandler.notifyRestricted(sp, player.getItemInHand(hand));
+                StorageRestrictionHandler.refuseFraming(sp, player.getItemInHand(hand));
             }
-            cir.setReturnValue(InteractionResult.FAIL);
+            // CONSUME, not FAIL: a result that doesn't consume the action makes the client fall
+            // through from the entity interaction to using the item, so a Heart or Crafted Heart
+            // would be eaten right after this and answer with its own cap message. Vanilla clients
+            // don't run this mixin at all, which is what refuseFraming covers on the server side.
+            cir.setReturnValue(InteractionResult.CONSUME);
         }
     }
 }

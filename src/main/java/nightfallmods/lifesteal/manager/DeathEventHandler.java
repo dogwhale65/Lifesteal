@@ -37,14 +37,17 @@ public class DeathEventHandler {
     public static void register() {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (!(entity instanceof ServerPlayer player)) return;
+            boolean onFloor = isOnHeartFloor(player);
             if (source.getEntity() instanceof ServerPlayer killer && killer != player) {
-                handleKillReward(killer);
+                // A heart the victim never lost cannot be stolen, so the kill pays nothing.
+                if (onFloor) announceNothingToSteal(player, killer);
+                else         handleKillReward(killer);
             }
             handleDeath(player);
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && isAtFinalHeart(player)) {
+            if (entity instanceof ServerPlayer player && !isOnHeartFloor(player) && isAtFinalHeart(player)) {
                 beginDeathMessageSuppression(player);
             }
             return true;
@@ -53,18 +56,43 @@ public class DeathEventHandler {
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
             UUID id = newPlayer.getUUID();
             if (pendingHealthReduction.remove(id)) applyHeartLoss(newPlayer);
-            if (pendingSpectator.remove(id))       transitionToSpectator(newPlayer);
+            boolean eliminated = pendingSpectator.remove(id);
+            if (eliminated) transitionToSpectator(newPlayer);
+            // `alive` marks a trip back through the End portal rather than a death, and an
+            // eliminated player is a spectator now — neither earns a grace period.
+            if (!alive && !eliminated) GracePeriodManager.start(newPlayer);
         });
 
         Lifesteal.LOGGER.info("[Death] Event handlers registered.");
     }
 
     private static void handleDeath(ServerPlayer player) {
+        // Sitting on the configured floor costs nothing, which is also what keeps such a player
+        // from ever reaching a final heart and being deathbanned.
+        if (isOnHeartFloor(player)) return;
+
         if (isAtFinalHeart(player)) {
             handleFinalDeath(player);
         } else {
             pendingHealthReduction.add(player.getUUID());
         }
+    }
+
+    /** True when the minimum-hearts floor is on and this player is already down to it. */
+    private static boolean isOnHeartFloor(ServerPlayer player) {
+        ServerConfig cfg = ServerConfig.getInstance();
+        if (!cfg.minimumHeartsEnabled) return false;
+        AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
+        return attr == null || cfg.isProtectedByHeartFloor(attr.getBaseValue());
+    }
+
+    private static void announceNothingToSteal(ServerPlayer victim, ServerPlayer attacker) {
+        victim.sendSystemMessage(
+                Component.literal("You did not lose any hearts to " + attacker.getName().getString())
+                        .withStyle(ChatFormatting.YELLOW));
+        attacker.sendSystemMessage(
+                Component.literal(victim.getName().getString() + " had no hearts to steal.")
+                        .withStyle(ChatFormatting.RED));
     }
 
     private static void handleFinalDeath(ServerPlayer player) {

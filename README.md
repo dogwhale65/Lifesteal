@@ -28,6 +28,17 @@ existing one reopens the recipe. The Dragon Egg has no recipe, it's earned by de
 the Ender Dragon. None of these items, along with the Heart items and Beacon of Life, can
 be stored in containers, so they only ever live on players or the ground.
 
+## Safety nets
+
+Two optional rules, both off by default, soften how much a death costs:
+
+- **Minimum hearts** (`minimumHeartsEnabled`, `minimumHearts`) - a floor no player can be
+  taken below. At the floor a death costs nothing, the killer steals nothing, and nobody
+  can be deathbanned. `/withdraw` stops at the same floor.
+- **Grace period** (`gracePeriodEnabled`, `gracePeriodSeconds`, default 30 minutes) - after
+  respawning, a player takes no damage from other players. It ends when the timer runs out,
+  when they put on armor, or when they attack another player.
+
 ## Configuration
 
 Hearts, death handling, combat toggles, enchant limits, item bans, and recipes are all

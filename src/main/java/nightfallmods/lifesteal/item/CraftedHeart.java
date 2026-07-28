@@ -42,17 +42,21 @@ public class CraftedHeart extends Item {
             return InteractionResultHolder.fail(itemStack);
         }
 
-        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
-        if (attr.getBaseValue() >= cap) {
+        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
             player.sendSystemMessage(
-                    Component.literal("Crafted Hearts cannot raise your health beyond "
-                                    + cfg.craftedHeartCap + " hearts. Earn more through combat.")
+                    Component.literal("You cannot go above " + cfg.maxHearts + " hearts.")
                             .withStyle(ChatFormatting.RED)
             );
             return InteractionResultHolder.fail(itemStack);
         }
 
-        if (attr.getBaseValue() >= cfg.getMaxHealth()) {
+        double cap = cfg.craftedHeartCap * Constants.HEART_VALUE;
+        if (attr.getBaseValue() >= cap) {
+            player.sendSystemMessage(
+                    Component.literal("Crafted Hearts cannot raise your health beyond "
+                                    + cfg.craftedHeartCap + " hearts.")
+                            .withStyle(ChatFormatting.RED)
+            );
             return InteractionResultHolder.fail(itemStack);
         }
 

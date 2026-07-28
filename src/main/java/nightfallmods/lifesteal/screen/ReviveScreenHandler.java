@@ -26,6 +26,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
     private final PlayerCollector collector;
     private final PageManager pages;
     private final ReviveItemFactory factory;
+    private final BeaconGuard beacon;
 
     private ReviveSort sort;
 
@@ -42,6 +43,7 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         this.collector = new PlayerCollector(server);
         this.pages     = new PageManager();
         this.factory   = new ReviveItemFactory();
+        this.beacon    = BeaconGuard.of(this.player);
 
         addSlots(playerInventory);
         renderPage();
@@ -65,9 +67,17 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
         pages.populateCurrentPage(inventory, collector.getRevivables(), factory, sort);
     }
 
+    // Player#tick re-evaluates this every tick and closes the menu when it turns false, so moving
+    // the beacon — offhanded, dragged, dropped, anything — tears the menu down on the next tick.
     @Override
     public boolean stillValid(Player player) {
-        return isOperator(player) || hasBeaconInInventory(player);
+        return beacon.intact(player);
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        BeaconGuard.resync(player);
     }
 
     @Override
@@ -75,12 +85,17 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
-        if (slotIndex >= 0 && slotIndex < Constants.CHEST_6X9_SIZE && clickType == ClickType.PICKUP) {
-            Slot slot = this.slots.get(slotIndex);
-            if (slot != null && slot.hasItem()) {
-                handleClick(slot.getItem());
+        if (slotIndex >= 0 && slotIndex < Constants.CHEST_6X9_SIZE) {
+            if (clickType == ClickType.PICKUP) {
+                Slot slot = this.slots.get(slotIndex);
+                if (slot != null && slot.hasItem()) handleClick(slot.getItem());
                 return;
             }
+            // Swaps, throws, quick-moves and drags onto the board are refused outright rather than
+            // handed to super, and the inventory is re-sent: the client is running a plain chest
+            // menu and would otherwise keep rendering the move it predicted.
+            BeaconGuard.resync(player);
+            return;
         }
         super.clicked(slotIndex, button, clickType, player);
     }
@@ -137,10 +152,6 @@ public class ReviveScreenHandler extends AbstractContainerMenu {
             if (inv.getItem(i).getItem() == Items.BEACON_OF_LIFE) return i;
         }
         return -1;
-    }
-
-    public static boolean hasBeaconInInventory(Player player) {
-        return findBeaconSlot(player) >= 0;
     }
 }
 

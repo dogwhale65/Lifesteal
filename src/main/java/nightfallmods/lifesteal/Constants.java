@@ -12,7 +12,19 @@ public final class Constants {
 
     public static final int CHEST_3X9_SIZE  = 27;
     public static final int CHEST_6X9_SIZE  = 54;
-    public static final int ITEMS_PER_PAGE  = 45;
+    public static final int CHEST_COLUMNS   = 9;
+
+    // Heads occupy rows 1-4, columns 1-7: a filler row along the top and a filler column down each
+    // side. The bottom row is the navigation row, so no filler sits between it and the last heads.
+    public static final int HEAD_FIRST_ROW = 1;
+    public static final int HEAD_LAST_ROW  = 4;
+    public static final int HEAD_FIRST_COL = 1;
+    public static final int HEAD_LAST_COL  = 7;
+
+    public static final int HEAD_ROWS = HEAD_LAST_ROW - HEAD_FIRST_ROW + 1;
+    public static final int HEAD_COLS = HEAD_LAST_COL - HEAD_FIRST_COL + 1;
+
+    public static final int ITEMS_PER_PAGE = HEAD_ROWS * HEAD_COLS;
 
     public static final int SLOT_YES_BUTTON = 11;
     public static final int SLOT_CONFIRM_HEAD = 13;

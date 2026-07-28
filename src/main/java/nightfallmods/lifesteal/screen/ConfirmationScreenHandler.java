@@ -27,6 +27,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
     private final String targetName;
     private final ReviveSort returnSort;
     private final ReviveLogic logic;
+    private final BeaconGuard beacon;
 
     public ConfirmationScreenHandler(int syncId, Inventory playerInventory, MinecraftServer server,
                                      String targetName, boolean targetBanned, ReviveSort returnSort) {
@@ -37,6 +38,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         this.returnSort = returnSort;
         this.inventory  = new SimpleContainer(Constants.CHEST_3X9_SIZE);
         this.logic      = new ReviveLogic(server, player);
+        this.beacon     = BeaconGuard.of(this.player);
 
         addSlots(playerInventory);
 
@@ -62,9 +64,17 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
             addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
     }
 
+    // Player#tick re-evaluates this every tick and closes the menu when it turns false, so moving
+    // the beacon — offhanded, dragged, dropped, anything — tears the menu down on the next tick.
     @Override
     public boolean stillValid(Player player) {
-        return ReviveScreenHandler.isOperator(player) || ReviveScreenHandler.hasBeaconInInventory(player);
+        return beacon.intact(player);
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        BeaconGuard.resync(player);
     }
 
     @Override
@@ -72,12 +82,16 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotIndex, int button, ClickType clickType, Player player) {
-        if (slotIndex >= 0 && slotIndex < Constants.CHEST_3X9_SIZE && clickType == ClickType.PICKUP) {
-            Slot slot = this.slots.get(slotIndex);
-            if (slot != null && slot.hasItem()) {
-                handleClick(slot.getItem());
+        if (slotIndex >= 0 && slotIndex < Constants.CHEST_3X9_SIZE) {
+            if (clickType == ClickType.PICKUP) {
+                Slot slot = this.slots.get(slotIndex);
+                if (slot != null && slot.hasItem()) handleClick(slot.getItem());
                 return;
             }
+            // See ReviveScreenHandler#clicked: anything but a plain click is refused and re-synced
+            // so the client cannot keep a move the server never made.
+            BeaconGuard.resync(player);
+            return;
         }
         super.clicked(slotIndex, button, clickType, player);
     }
@@ -100,7 +114,7 @@ public class ConfirmationScreenHandler extends AbstractContainerMenu {
         // packet that got us here has already been handled. Everything below runs synchronously
         // on the server thread, so the check, the revive and the consume are atomic.
         boolean opAuthorised = ReviveScreenHandler.isOperator(player);
-        int beaconSlot = ReviveScreenHandler.findBeaconSlot(player);
+        int beaconSlot = beacon.intact(player) ? beacon.slot() : -1;
 
         if (!opAuthorised && beaconSlot < 0) {
             sendTo(Component.literal("You need a Beacon of Life to revive a player.")
